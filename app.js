@@ -35,4 +35,6 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
+indexRouter.init();
+
 module.exports = app;

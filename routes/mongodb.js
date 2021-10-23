@@ -13,16 +13,14 @@ class Mongodb {
 		try {
 			await this.client.connect();
 			this.db = await this.client.db().collection('users')
-			console.log('База подключена');
-			// console.log(this.db)
-			const test = await this.db.findOne({name:"Михаил"})
-			console.log(test);
+			console.log('Все заебись, база подключена')
 		}catch (e) {
 			console.log(e)
 		}
 	}
 }
 
-module.exports = new Mongodb()
+const mongodb = new Mongodb();
+module.exports = mongodb;
 
 
