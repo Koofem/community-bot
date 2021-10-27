@@ -4,7 +4,8 @@ const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
-const indexRouter = require('./routes/index');
+
+const telegramBot = require('./src/core/App.js');
 
 const app = express();
 
@@ -35,6 +36,6 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
-indexRouter.init();
+telegramBot.init();
 
 module.exports = app;
