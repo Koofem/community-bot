@@ -29,6 +29,10 @@ startListening() {
 
   this.bot.hears(messages.SUGGESTNEWS, (ctx)=> msgHandler.suggestNewsHandler(ctx))
 
+  this.bot.hears(messages.EXTERNALCHANNEL, (ctx)=> msgHandler.suggestExternalPostHandler(ctx))
+
+  this.bot.hears(messages.PRIVATECHANNEL, (ctx)=> msgHandler.suggestPrivatePostHandler(ctx))
+
   this.bot.hears(messages.IWANTTOSPEAK,(ctx)=> msgHandler.speechHandler(ctx));
 
   this.bot.hears(messages.BACK,(ctx)=> msgHandler.restartAndStartCommandHandler(ctx));

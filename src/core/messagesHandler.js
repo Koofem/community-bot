@@ -166,8 +166,50 @@ class MessagesHandler {
 		})
 	}
 
-	async suggestNewsHandler(ctx) {
+	async suggestExternalPostHandler(ctx) {
 		const user = await this.findUser(ctx.from);
+		const msg = "Я тебя услышал. Пожалуйста, опиши свою новость в одном сообщении, прикрепи требуемые ссылки, изображения также прошу тебя прислать ссылкой на внешний ресурс, иначе я не смогу их принять ☹️"
+		await Mongodb.userBD.updateOne({id: user.id}, {
+			$set: {
+				current_action: {
+					action: 'suggest_external_post',
+				},
+			}
+		})
+		await ctx.telegram.sendMessage(ctx.chat.id, msg, {
+			parse_mode: 'HTML',
+			reply_markup: {
+				keyboard: [
+					[messages.BACK]
+				],
+				resize_keyboard: true,
+			},
+		})
+	}
+
+	async suggestPrivatePostHandler(ctx) {
+		const user = await this.findUser(ctx.from);
+		const msg = "Я тебя услышал. Пожалуйста, опиши свою новость в одном сообщении, прикрепи требуемые ссылки, изображения также прошу тебя прислать ссылкой на внешний ресурс, иначе я не смогу их принять ☹️"
+		await Mongodb.userBD.updateOne({id: user.id}, {
+			$set: {
+				current_action: {
+					action: 'suggest_private_post',
+				},
+			}
+		})
+		await ctx.telegram.sendMessage(ctx.chat.id, msg, {
+			parse_mode: 'HTML',
+			reply_markup: {
+				keyboard: [
+					[messages.BACK]
+				],
+				resize_keyboard: true,
+			},
+		})
+	}
+
+
+	async suggestNewsHandler(ctx) {
 		const userName = await this.findUserName(ctx.from);
 		const msg = userName ? `${userName}, отлично! Куда бы ты хотел опубликовать новость?`:
 			'отлично! Куда бы ты хотел опубликовать новость?';
@@ -199,28 +241,79 @@ class MessagesHandler {
 					case action.IWANTTOSPEAK:
 						return this.answerSpeechHandler(ctx, user);
 						break;
+					case action.SUGGESTEXTERNALPOST:
+						return this.answerSuggestExternalPostHandler(ctx, user);
+						break;
+
+					case action.SUGGESTPRIVATEPOST:
+						return this.answerSuggestPrivatePostHandler(ctx, user);
+						break;
 				}
 		} else {
 			return await this.sendSimpleMessage(ctx, userName);
 		}
 	}
 
+	async answerSuggestExternalPostHandler(ctx, user) {
+		const receivedExternalPost = ctx.update.message.text;
+		const insertExternalPost = {
+			post: receivedExternalPost,
+			user_id: user.id,
+			type: 'external'
+		}
+		await Mongodb.postDB.insertOne(insertExternalPost)
+
+		await this.resetLastAction(user)
+
+		return await ctx.telegram.sendMessage(ctx.chat.id, "Спасибо! Твоя новость принята и будет опубликована в ближайшее время!", {
+			reply_markup: {
+				keyboard: [
+					[messages.SUGGESTNEWS, messages.IWANTTOSPEAK],
+					[messages.TIMETABLE, messages.INFORMATION],
+					[messages.GIVEIDEA,messages.ASKQUESTION],
+				],
+				resize_keyboard: true,
+			},
+		})
+	}
+
+	async answerSuggestPrivatePostHandler(ctx, user) {
+		const receivedPrivatePost = ctx.update.message.text;
+		const insertPrivatePost = {
+			post: receivedPrivatePost,
+			user_id: user.id,
+			type: 'private'
+		}
+
+		await Mongodb.postDB.insertOne(insertPrivatePost)
+
+		await this.resetLastAction(user)
+
+		return await ctx.telegram.sendMessage(ctx.chat.id, "Спасибо! Твоя новость принята и будет опубликована в ближайшее время!", {
+			reply_markup: {
+				keyboard: [
+					[messages.SUGGESTNEWS, messages.IWANTTOSPEAK],
+					[messages.TIMETABLE, messages.INFORMATION],
+					[messages.GIVEIDEA,messages.ASKQUESTION],
+				],
+				resize_keyboard: true,
+			},
+		})
+	}
+
 	async answerSpeechHandler(ctx, user) {
 		const receivedSpeech = ctx.update.message.text;
-		// if (receivedIdea.length >= 40 ) {
-		// 	return await ctx.telegram.sendMessage(ctx.chat.id, 'Слишком много предложений!😱')
-		// }
 		const insertSpeech = {
-			question: receivedSpeech,
+			speech: receivedSpeech,
 			user_id: user.id,
 		}
 		await Mongodb.speechDB.insertOne(insertSpeech)
 
 		await this.resetLastAction(user)
 
-		const theNote = '<a href="https://juvenile-sailboat-95a.notion.site/8098da36c0474833ad5018c879b754b9">памятку для проведения воркшопов</a>'
+		const theNote = '<a href="https://www.notion.so/foodtech-x5/8098da36c0474833ad5018c879b754b9">памятку для проведения воркшопов</a>'
 
-		return await ctx.telegram.sendMessage(ctx.chat.id, `Принято! Держи нашу ${theNote} 😀 (битая ссылка)`, {
+		return await ctx.telegram.sendMessage(ctx.chat.id, `Принято! Держи нашу ${theNote} 😀`, {
 			reply_markup: {
 				keyboard: [
 					[messages.SUGGESTNEWS, messages.IWANTTOSPEAK],
@@ -240,9 +333,6 @@ class MessagesHandler {
 
 	async answerQuestionHandler(ctx, user) {
 		const askedQuestion = ctx.update.message.text;
-		// if (askedQuestion.length >= 40 ) {
-		// 	return await ctx.telegram.sendMessage(ctx.chat.id, 'Вопрос слишком длинный!😱')
-		// }
 		const insertQuestion = {
 			question: askedQuestion,
 			user_id: user.id,
@@ -266,11 +356,8 @@ class MessagesHandler {
 
 	async answerIdeaHandler(ctx, user) {
 		const receivedIdea = ctx.update.message.text;
-		// if (receivedIdea.length >= 40 ) {
-		// 	return await ctx.telegram.sendMessage(ctx.chat.id, 'Слишком много предложений!😱')
-		// }
 		const insertIdea = {
-			question: receivedIdea,
+			idea: receivedIdea,
 			user_id: user.id,
 		}
 		await Mongodb.ideasBD.insertOne(insertIdea)
