@@ -2,10 +2,10 @@ const Mongodb = require('./mongodb');
 const lodash = require('../../lodash');
 const messages = require('../../message');
 const action = require('../../actions');
+const request = require('request')
 
 class MessagesHandler {
 	constructor() {
-
 	}
 
 	async initMongodb() {
@@ -342,12 +342,31 @@ class MessagesHandler {
 		}
 	}
 
+	async photoMessageHandler(ctx) {
+		const photoPath = await this.getPhotoPath(ctx);
+		console.log(photoPath)
+	}
+
+	async getPhotoPath(ctx) {
+		let photoUrl = null;
+		const url = `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${ctx.message.photo[ctx.message.photo.length - 1].file_id}`;
+		return new Promise((resolve) => {
+			 request(url, (err, response, body)=> {
+				if (err) return photoUrl(photoUrl);
+				const bodyObject = JSON.parse(body);
+				photoUrl = bodyObject.result.file_path;
+				return resolve(photoUrl);
+			})
+		})
+	}
+
 	async answerSuggestExternalPostHandler(ctx, user) {
 		const receivedExternalPost = ctx.update.message.text;
 		const insertExternalPost = {
 			post: receivedExternalPost,
 			user_id: user.id,
-			type: 'external'
+			type: 'external',
+			date: new Date().toISOString(),
 		}
 		await Mongodb.postDB.insertOne(insertExternalPost)
 
@@ -370,7 +389,8 @@ class MessagesHandler {
 		const insertPrivatePost = {
 			post: receivedPrivatePost,
 			user_id: user.id,
-			type: 'private'
+			type: 'private',
+			date: new Date().toISOString(),
 		}
 
 		await Mongodb.postDB.insertOne(insertPrivatePost)
@@ -394,6 +414,7 @@ class MessagesHandler {
 		const insertSpeech = {
 			speech: receivedSpeech,
 			user_id: user.id,
+			date: new Date().toISOString(),
 		}
 		await Mongodb.speechDB.insertOne(insertSpeech)
 
@@ -424,6 +445,7 @@ class MessagesHandler {
 		const insertQuestion = {
 			question: askedQuestion,
 			user_id: user.id,
+			date: new Date().toISOString(),
 		}
 		await Mongodb.questionsBD.insertOne(insertQuestion)
 
@@ -447,6 +469,7 @@ class MessagesHandler {
 		const insertIdea = {
 			idea: receivedIdea,
 			user_id: user.id,
+			date: new Date().toISOString(),
 		}
 		await Mongodb.ideasBD.insertOne(insertIdea)
 

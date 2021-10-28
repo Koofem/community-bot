@@ -45,6 +45,8 @@ startListening() {
 
   this.bot.on('text', (ctx) =>msgHandler.simpleMessageHandler(ctx));
 
+  this.bot.on('photo', (ctx) => msgHandler.photoMessageHandler(ctx));
+
   this.bot.launch();
 }
 }
