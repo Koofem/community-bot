@@ -55,10 +55,97 @@ class MessagesHandler {
 
 	async restartAndStartCommandHandler(ctx) {
 		await this.saveOrUpdateUser(ctx.from)
-		await this.resetLastAction(await this.findUser(ctx.from));
+		const user = await this.findUser(ctx.from)
+		await this.resetLastAction(user);
+		await this.menuSelection(ctx,user);
+	}
+
+	async menuSelection(ctx, user) {
+		if (lodash.has(user, 'admin')) {
+			return this.showMenuSelection(ctx)
+		} else {
+			return this.showRegularMenu(ctx);
+		}
+	}
+
+	async showMenuSelection(ctx) {
 		const userName = await this.findUserName(ctx.from);
-		const msg = userName ? `${userName}, чем я могу помочь?`: 'Чем я могу помочь?'
+		const msg = `О великий и всемогущий(ая) ${userName}, как я могу услужить тебе?`
 		await ctx.telegram.sendMessage(ctx.chat.id, msg, {
+			reply_markup: {
+				keyboard: [
+					[messages.ADMINMENU, messages.REGULARMENU],
+				],
+				resize_keyboard: true,
+			},
+		})
+	}
+
+	checkIsAdmin(user) {
+		return lodash.has(user, 'admin')
+	}
+
+	async massiveMessageHandler(ctx) {
+		const user = await this.findUser(ctx.from)
+		if (this.checkIsAdmin(user)) {
+			await Mongodb.userBD.updateOne({id: user.id}, {
+				$set: {
+					current_action: {
+						action: 'massive_message',
+					},
+				}
+			})
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Следующее сообщение будет отправлено всем, у кого запущен бот, осторожнее со словами!:)', {
+				reply_markup: {
+					keyboard: [
+						[messages.BACK]
+					],
+					resize_keyboard: true,
+				},
+			})
+		} else {
+			const msg = 'ты немного ошибся, скорее всего тебе нужно другое меню!:)'
+			return this.showRegularMenu(ctx, msg);
+		}
+	}
+
+	async answerMassiveMessageHandler(ctx, user) {
+		const usersArr = await Mongodb.userBD.find().toArray();
+		const massiveMessage = ctx.update.message.text;
+		usersArr.forEach(async (user) => {
+			return await ctx.telegram.sendMessage(user.id, massiveMessage);
+		})
+
+		await this.resetLastAction(user);
+		const msg = 'Сообщения отправились, даже тебе, поздравляю!'
+		return this.showAdminMenu(ctx, msg);
+	}
+
+	async showAdminMenu(ctx, extraMsg) {
+		const msg = 'Доступные функции';
+		const sendMessage = extraMsg ? extraMsg : msg
+		const user = await this.findUser(ctx.from)
+		if (this.checkIsAdmin(user)) {
+			await ctx.telegram.sendMessage(ctx.chat.id, sendMessage, {
+				reply_markup: {
+					keyboard: [
+						[messages.MASSIVEMESSAGE],
+						[messages.BACK]
+					],
+					resize_keyboard: true,
+				},
+			})
+		} else {
+			const msg = 'ты немного ошибся, скорее всего тебе нужно другое меню!:)'
+			return this.showRegularMenu(ctx, msg);
+		}
+	}
+
+	async showRegularMenu(ctx, extraMsg) {
+		const userName = await this.findUserName(ctx.from);
+		const msg = "Чем я могу помочь?";
+		const sendMessage = extraMsg ? `${userName}, ${extraMsg}` : `${userName}, ${msg}`
+		await ctx.telegram.sendMessage(ctx.chat.id, sendMessage, {
 			reply_markup: {
 				keyboard: [
 					[messages.SUGGESTNEWS, messages.IWANTTOSPEAK],
@@ -67,7 +154,6 @@ class MessagesHandler {
 				],
 				resize_keyboard: true,
 			},
-
 		})
 	}
 
@@ -248,6 +334,8 @@ class MessagesHandler {
 					case action.SUGGESTPRIVATEPOST:
 						return this.answerSuggestPrivatePostHandler(ctx, user);
 						break;
+					case action.MASSIVEMESSAGE:
+						return this.answerMassiveMessageHandler(ctx, user);
 				}
 		} else {
 			return await this.sendSimpleMessage(ctx, userName);

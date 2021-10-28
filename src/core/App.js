@@ -37,9 +37,13 @@ startListening() {
 
   this.bot.hears(messages.BACK,(ctx)=> msgHandler.restartAndStartCommandHandler(ctx));
 
+  this.bot.hears(messages.REGULARMENU, ctx => msgHandler.showRegularMenu(ctx));
+
+  this.bot.hears(messages.ADMINMENU, ctx=> msgHandler.showAdminMenu(ctx));
+
+  this.bot.hears(messages.MASSIVEMESSAGE, ctx=> msgHandler.massiveMessageHandler(ctx));
+
   this.bot.on('text', (ctx) =>msgHandler.simpleMessageHandler(ctx));
-
-
 
   this.bot.launch();
 }
