@@ -10,12 +10,8 @@ class MessagesHandler {
 	constructor() {
 	}
 
-	async initMongodb() {
-		await Mongodb.init();
-	}
-
 	async saveOrUpdateUser(user) {
-		const userBD = await this.findUser(user);
+		const userBD = await Mongodb.findUser(user.id)
 		if (userBD) {
 			const isUsersEqual = this._compare(user, userBD);
 			if (!isUsersEqual){
@@ -47,17 +43,13 @@ class MessagesHandler {
 	}
 
 	async findUserName(user) {
-		const foundUser = await this.findUser(user)
+		const foundUser = await Mongodb.findUser(user.id)
 		return foundUser.first_name;
-	}
-
-	async findUser(user) {
-		return await Mongodb.userBD.findOne({id: user.id});
 	}
 
 	async restartAndStartCommandHandler(ctx) {
 		await this.saveOrUpdateUser(ctx.from)
-		const user = await this.findUser(ctx.from)
+		const user = await Mongodb.findUser(ctx.from.id)
 		await this.resetLastAction(user);
 		await this.menuSelection(ctx,user);
 	}
@@ -112,7 +104,7 @@ class MessagesHandler {
 	}
 
 	async massiveMessageHandler(ctx) {
-		const user = await this.findUser(ctx.from)
+		const user = await Mongodb.findUser(ctx.from.id)
 		if (this.checkIsAdmin(user)) {
 			await Mongodb.userBD.updateOne({id: user.id}, {
 				$set: {
@@ -142,6 +134,7 @@ class MessagesHandler {
 		const timeout = setTimeout(()=> {
 			ctx.telegram.sendMessage(ctx.chat.id, 'Сообщения отправляются, это может занять время');
 		}, 500)
+
 		const promises = usersArr.map((user) => {
 			return new Promise((resolve, reject) => {
 				ctx.telegram.sendMessage(user.id, massiveMessage).then(()=> {
@@ -162,7 +155,7 @@ class MessagesHandler {
 	async showAdminMenu(ctx, extraMsg) {
 		const msg = 'Доступные функции';
 		const sendMessage = extraMsg ? extraMsg : msg
-		const user = await this.findUser(ctx.from)
+		const user = await Mongodb.findUser(ctx.from.id)
 		if (this.checkIsAdmin(user)) {
 			await ctx.telegram.sendMessage(ctx.chat.id, sendMessage, {
 				reply_markup: {
@@ -180,7 +173,7 @@ class MessagesHandler {
 	}
 
 	async showRegularMenu(ctx, extraMsg) {
-		const userName = await this.findUserName(ctx.from);
+		const userName = await Mongodb.findUser(ctx.from.id)
 		const msg = "Чем я могу помочь?";
 		const sendMessage = extraMsg ? `${userName}, ${extraMsg}` : `${userName}, ${msg}`
 		await ctx.telegram.sendMessage(ctx.chat.id, sendMessage, {
@@ -220,7 +213,7 @@ class MessagesHandler {
 	}
 
 	async askQuestionHandler(ctx) {
-		const user = await this.findUser(ctx.from);
+		const user = await Mongodb.findUser(ctx.from.id)
 		const userName = await this.findUserName(ctx.from);
 		const msg = userName ? `${userName}, слушаю тебя! \nНапиши вопрос одним предложением!`: 'Слушаю тебя!\n Напиши вопрос одним предложением!';
 		await Mongodb.userBD.updateOne({id: user.id}, {
@@ -243,7 +236,7 @@ class MessagesHandler {
 	}
 
 	async speechHandler(ctx) {
-		const user = await this.findUser(ctx.from);
+		const user = await Mongodb.findUser(ctx.from.id)
 		const userName = await this.findUserName(ctx.from);
 		const msg = userName ? `${userName}, это просто потрясающе! В рамках комьюнити мы проводим как и небольшие воркшопы (15-40 минут), так более серьезные выступления для всего X5 FoodTech. Опиши свою идею одним сообщением, и мы с тобой свяжемся, чтобы выбрать удобный формат и дату!`:
 			'Это просто потрясающе! В рамках комьюнити мы проводим как и небольшие воркшопы (15-40 минут), так более серьезные выступления для всего X5 FoodTech. Опиши свою идею одним сообщением, и мы с тобой свяжемся, чтобы выбрать удобный формат и дату!';
@@ -267,7 +260,7 @@ class MessagesHandler {
 	}
 
 	async giveIdeaHandler(ctx) {
-		const user = await this.findUser(ctx.from);
+		const user = await Mongodb.findUser(ctx.from.id)
 		const userName = await this.findUserName(ctx.from);
 		const msg = userName ? `${userName}, замечательно! Мы прислушиваемся ко всем комментариям аудитории. Опиши пожалуйста мне все одним сообщением 🙂`:
 			'Замечательно! Мы прислушиваемся ко всем комментариям аудитории. Опиши пожалуйста мне все одним сообщением 🙂';
@@ -291,7 +284,7 @@ class MessagesHandler {
 	}
 
 	async suggestExternalPostHandler(ctx) {
-		const user = await this.findUser(ctx.from);
+		const user = await Mongodb.findUser(ctx.from.id)
 		const msg = "Я тебя услышал. Пожалуйста, опиши свою новость в одном сообщении, прикрепи требуемые ссылки, изображения также прошу тебя прислать ссылкой на внешний ресурс, иначе я не смогу их принять ☹️"
 		await Mongodb.userBD.updateOne({id: user.id}, {
 			$set: {
@@ -312,7 +305,7 @@ class MessagesHandler {
 	}
 
 	async suggestPrivatePostHandler(ctx) {
-		const user = await this.findUser(ctx.from);
+		const user = await Mongodb.findUser(ctx.from.id)
 		const msg = "Я тебя услышал. Пожалуйста, опиши свою новость в одном сообщении, прикрепи требуемые ссылки, изображения также прошу тебя прислать ссылкой на внешний ресурс, иначе я не смогу их принять ☹️"
 		await Mongodb.userBD.updateOne({id: user.id}, {
 			$set: {
@@ -351,7 +344,7 @@ class MessagesHandler {
 	}
 
 	async simpleMessageHandler(ctx) {
-		const user = await this.findUser(ctx.from);
+		const user = await Mongodb.findUser(ctx.from.id)
 		const userName = await this.findUserName(ctx.from);
 
 		if (lodash.has(user, 'current_action')) {
@@ -382,7 +375,7 @@ class MessagesHandler {
 
 	async photoMessageHandler(ctx) {
 		const photoID = await this.getPhotoID(ctx);
-		const user = await this.findUser(ctx.from)
+		const user = await Mongodb.findUser(ctx.from.id)
 		const usersArr = await Mongodb.getAllUsers();
 		if (this.checkIsAdmin(user) && lodash.get(user, 'current_action.action', false ) === action.MASSIVEMESSAGE) {
 			await this.resetLastAction(user);

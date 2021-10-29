@@ -36,6 +36,10 @@ class Mongodb {
 	async getAllUsers() {
 		return await this.userBD.find().toArray();
 	}
+
+	async findUser(id) {
+		return await this.userBD.findOne({id: id});
+	}
 }
 
 const mongodb = new Mongodb();

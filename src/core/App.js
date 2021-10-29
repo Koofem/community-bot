@@ -3,6 +3,8 @@ const fs = require('fs')
 require('dotenv')
 const messages = require('../../message');
 const msgHandler = require('./messagesHandler')
+const Mongodb = require("./mongodb");
+const Notion = require("./notion");
 
 
 class TelegramBot {
@@ -10,8 +12,9 @@ class TelegramBot {
   bot = new Telegraf(process.env.BOT_TOKEN)
 
   async init() {
-    await msgHandler.initMongodb();
+    await Mongodb.init();
     await this.startListening();
+    await Notion.init();
   }
 
 startListening() {
@@ -51,7 +54,7 @@ startListening() {
 
 
   this.bot.launch().then(()=> {
-    console.log('Бот запущен')
+    console.log('Все заебись, бот запущен')
   })
 }
 }
