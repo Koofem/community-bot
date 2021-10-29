@@ -31,7 +31,10 @@ class Mongodb {
 		this.speechDB = this.db.collection('speech');
 		this.questionsBD = this.db.collection('questions');
 		this.ideasBD = this.db.collection('ideas');
+	}
 
+	async getAllUsers() {
+		return await this.userBD.find().toArray();
 	}
 }
 

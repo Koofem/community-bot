@@ -4,6 +4,8 @@ const messages = require('../../message');
 const action = require('../../actions');
 const request = require('request')
 
+const MESSAGE_LIMIT = 4096;
+
 class MessagesHandler {
 	constructor() {
 	}
@@ -85,6 +87,30 @@ class MessagesHandler {
 		return lodash.has(user, 'admin')
 	}
 
+	async getUsersHandler(ctx) {
+		const usersArr = await Mongodb.getAllUsers();
+		let message = '';
+		const timeout = setTimeout(() =>  {
+			ctx.telegram.sendMessage(ctx.chat.id, 'Думаю, может быть долго....');
+		}, 500)
+
+		const promises = usersArr.map(user => {
+			return new Promise((res, rej)=> {
+					message = message + `Имя: ${user.first_name} \nФамилия: ${user.last_name} \nНик: @${user.username}\nАдмин или нет🤔: ${user.admin ? 'Админ': 'не админ'}  \n\n\n`
+					return res();
+
+			})
+		})
+
+
+		return Promise.all(promises).then(()=> {
+			clearInterval(timeout);
+			ctx.telegram.sendMessage(ctx.chat.id, message)
+		});
+
+
+	}
+
 	async massiveMessageHandler(ctx) {
 		const user = await this.findUser(ctx.from)
 		if (this.checkIsAdmin(user)) {
@@ -95,7 +121,7 @@ class MessagesHandler {
 					},
 				}
 			})
-			await ctx.telegram.sendMessage(ctx.chat.id, 'Следующее сообщение будет отправлено всем, у кого запущен бот, осторожнее со словами!:)', {
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Следующее сообщение будет отправлено всем, у кого запущен бот, осторожнее со словами и картинками!:)', {
 				reply_markup: {
 					keyboard: [
 						[messages.BACK]
@@ -110,15 +136,27 @@ class MessagesHandler {
 	}
 
 	async answerMassiveMessageHandler(ctx, user) {
-		const usersArr = await Mongodb.userBD.find().toArray();
+		const usersArr = await Mongodb.getAllUsers();
 		const massiveMessage = ctx.update.message.text;
-		usersArr.forEach(async (user) => {
-			return await ctx.telegram.sendMessage(user.id, massiveMessage);
+		await this.resetLastAction(user);
+		const timeout = setTimeout(()=> {
+			ctx.telegram.sendMessage(ctx.chat.id, 'Сообщения отправляются, это может занять время');
+		}, 500)
+		const promises = usersArr.map((user) => {
+			return new Promise((resolve, reject) => {
+				ctx.telegram.sendMessage(user.id, massiveMessage).then(()=> {
+					return resolve();
+				})
+			})
 		})
 
-		await this.resetLastAction(user);
-		const msg = 'Сообщения отправились, даже тебе, поздравляю!'
-		return this.showAdminMenu(ctx, msg);
+		Promise.all(promises).then(() => {
+			clearInterval(timeout)
+			const msg = 'Сообщения отправились, даже тебе, поздравляю!'
+			return this.showAdminMenu(ctx, msg);
+		})
+
+
 	}
 
 	async showAdminMenu(ctx, extraMsg) {
@@ -129,7 +167,7 @@ class MessagesHandler {
 			await ctx.telegram.sendMessage(ctx.chat.id, sendMessage, {
 				reply_markup: {
 					keyboard: [
-						[messages.MASSIVEMESSAGE],
+						[messages.MASSIVEMESSAGE, messages.GETALLUSERS],
 						[messages.BACK]
 					],
 					resize_keyboard: true,
@@ -343,19 +381,47 @@ class MessagesHandler {
 	}
 
 	async photoMessageHandler(ctx) {
-		const photoPath = await this.getPhotoPath(ctx);
-		console.log(photoPath)
+		const photoID = await this.getPhotoID(ctx);
+		const user = await this.findUser(ctx.from)
+		const usersArr = await Mongodb.getAllUsers();
+		if (this.checkIsAdmin(user) && lodash.get(user, 'current_action.action', false ) === action.MASSIVEMESSAGE) {
+			await this.resetLastAction(user);
+			const timeout = setTimeout(()=> {
+				ctx.telegram.sendMessage(ctx.chat.id, 'Сообщения отправляются, это может занять время');
+			}, 500)
+			const massiveMessage = ctx.update.message.caption ? ctx.update.message.caption : '';
+			const promises = usersArr.map((user) => {
+				return new Promise((resolve)=> {
+					 return ctx.telegram.sendPhoto(user.id, photoID, {
+						caption: massiveMessage,
+						disable_notification: true,
+					}).then(()=> {
+							return resolve();
+
+					 })
+				})
+			});
+
+			await Promise.all(promises).then(() => {
+				clearInterval(timeout)
+				const msg = 'Сообщения отправились, даже тебе, поздравляю!'
+				return this.showAdminMenu(ctx, msg);
+			})
+		} else {
+			const msg = 'картинки не принимаю 🙈'
+			return this.showRegularMenu(ctx, msg);
+		}
 	}
 
-	async getPhotoPath(ctx) {
-		let photoUrl = null;
+	async getPhotoID(ctx) {
+		let photoID = null;
 		const url = `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${ctx.message.photo[ctx.message.photo.length - 1].file_id}`;
 		return new Promise((resolve) => {
 			 request(url, (err, response, body)=> {
-				if (err) return photoUrl(photoUrl);
+				if (err) return resolve(photoID);
 				const bodyObject = JSON.parse(body);
-				photoUrl = bodyObject.result.file_path;
-				return resolve(photoUrl);
+				 photoID = bodyObject.result.file_id;
+				return resolve(photoID);
 			})
 		})
 	}

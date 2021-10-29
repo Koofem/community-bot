@@ -10,8 +10,8 @@ class TelegramBot {
   bot = new Telegraf(process.env.BOT_TOKEN)
 
   async init() {
-    await this.startListening();
     await msgHandler.initMongodb();
+    await this.startListening();
   }
 
 startListening() {
@@ -43,11 +43,16 @@ startListening() {
 
   this.bot.hears(messages.MASSIVEMESSAGE, ctx=> msgHandler.massiveMessageHandler(ctx));
 
+  this.bot.hears(messages.GETALLUSERS, ctx=> msgHandler.getUsersHandler(ctx));
+
   this.bot.on('text', (ctx) =>msgHandler.simpleMessageHandler(ctx));
 
   this.bot.on('photo', (ctx) => msgHandler.photoMessageHandler(ctx));
 
-  this.bot.launch();
+
+  this.bot.launch().then(()=> {
+    console.log('Бот запущен')
+  })
 }
 }
 

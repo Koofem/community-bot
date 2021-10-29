@@ -10,7 +10,8 @@ const messages = {
 		PRIVATECHANNEL : "Канал X5 Tech Community",
 		ADMINMENU: 'Админское меню',
 		REGULARMENU: 'Пользовательское меню',
-		MASSIVEMESSAGE: 'Рассылка пользователям (бета)'
+		MASSIVEMESSAGE: 'Рассылка пользователям (бета)',
+		GETALLUSERS: 'Получить пользователей',
 }
 
 module.exports = messages
