@@ -3,12 +3,11 @@ const lodash = require('../../lodash');
 const messages = require('../../message');
 const action = require('../../actions');
 const request = require('request')
+const notion = require('./notion')
 
 const MESSAGE_LIMIT = 4096;
 
 class MessagesHandler {
-	constructor() {
-	}
 
 	async saveOrUpdateUser(user) {
 		const userBD = await Mongodb.findUser(user.id)
@@ -161,6 +160,7 @@ class MessagesHandler {
 				reply_markup: {
 					keyboard: [
 						[messages.MASSIVEMESSAGE, messages.GETALLUSERS],
+						[messages.SELECTQUESTION],
 						[messages.BACK]
 					],
 					resize_keyboard: true,
@@ -173,7 +173,7 @@ class MessagesHandler {
 	}
 
 	async showRegularMenu(ctx, extraMsg) {
-		const userName = await Mongodb.findUser(ctx.from.id)
+		const userName = await this.findUserName(ctx.from)
 		const msg = "Чем я могу помочь?";
 		const sendMessage = extraMsg ? `${userName}, ${extraMsg}` : `${userName}, ${msg}`
 		await ctx.telegram.sendMessage(ctx.chat.id, sendMessage, {
@@ -361,12 +361,15 @@ class MessagesHandler {
 					case action.SUGGESTEXTERNALPOST:
 						return this.answerSuggestExternalPostHandler(ctx, user);
 						break;
-
 					case action.SUGGESTPRIVATEPOST:
 						return this.answerSuggestPrivatePostHandler(ctx, user);
 						break;
 					case action.MASSIVEMESSAGE:
 						return this.answerMassiveMessageHandler(ctx, user);
+					case action.SELECTQUESTION:
+						return this.selectedQuestionHandler(ctx, user)
+					case action.ANSEWERINGQEUSTION:
+						return this.answeringQuestionHandler(ctx, user)
 				}
 		} else {
 			return await this.sendSimpleMessage(ctx, userName);
@@ -420,18 +423,21 @@ class MessagesHandler {
 	}
 
 	async answerSuggestExternalPostHandler(ctx, user) {
+		const posts = await Mongodb.getAllPost();
+		const index = posts.length + 1;
 		const receivedExternalPost = ctx.update.message.text;
 		const insertExternalPost = {
 			post: receivedExternalPost,
 			user_id: user.id,
 			type: 'external',
 			date: new Date().toISOString(),
+			index: index
 		}
 		await Mongodb.postDB.insertOne(insertExternalPost)
 
 		await this.resetLastAction(user)
 
-		return await ctx.telegram.sendMessage(ctx.chat.id, "Спасибо! Твоя новость принята и будет опубликована в ближайшее время!", {
+		await ctx.telegram.sendMessage(ctx.chat.id, "Спасибо! Твоя новость принята и будет опубликована в ближайшее время!", {
 			reply_markup: {
 				keyboard: [
 					[messages.SUGGESTNEWS, messages.IWANTTOSPEAK],
@@ -441,22 +447,27 @@ class MessagesHandler {
 				resize_keyboard: true,
 			},
 		})
+
+		await this.makeNotionPostPage(index,receivedExternalPost, user.id, 'public')
 	}
 
 	async answerSuggestPrivatePostHandler(ctx, user) {
+		const posts = await Mongodb.getAllPost();
+		const index = posts.length + 1;
 		const receivedPrivatePost = ctx.update.message.text;
 		const insertPrivatePost = {
 			post: receivedPrivatePost,
 			user_id: user.id,
 			type: 'private',
 			date: new Date().toISOString(),
+			index: index
 		}
 
 		await Mongodb.postDB.insertOne(insertPrivatePost)
 
 		await this.resetLastAction(user)
 
-		return await ctx.telegram.sendMessage(ctx.chat.id, "Спасибо! Твоя новость принята и будет опубликована в ближайшее время!", {
+		await ctx.telegram.sendMessage(ctx.chat.id, "Спасибо! Твоя новость принята и будет опубликована в ближайшее время!", {
 			reply_markup: {
 				keyboard: [
 					[messages.SUGGESTNEWS, messages.IWANTTOSPEAK],
@@ -466,6 +477,7 @@ class MessagesHandler {
 				resize_keyboard: true,
 			},
 		})
+		await this.makeNotionPostPage(index,receivedPrivatePost, user.id, 'private')
 	}
 
 	async answerSpeechHandler(ctx, user) {
@@ -499,18 +511,134 @@ class MessagesHandler {
 		await ctx.telegram.sendMessage(ctx.chat.id, unidentifiedMessage)
 	}
 
+	async selectedQuestionHandler(ctx, user) {
+		const index = ctx.update.message.text
+		const question = await Mongodb.findQuestion(index);
+		if (question && !question.answered) {
+			const userWhoAsked = await Mongodb.findUser(question.user_id)
+			await Mongodb.userBD.updateOne({id: user.id}, {
+				$set: {
+					current_action: {
+						action: 'question_selected',
+						questionIndex: index
+					},
+				}
+			})
+			const message = `Выбранный вопрос: \nАвтор: ${userWhoAsked.first_name} (@${userWhoAsked.username})\nОтвет получен: ${question.answered ? 'Да' : 'Нет'}\nВопрос: ${question.question}. \nБудете отвечать?`
+			await ctx.telegram.sendMessage(ctx.chat.id, message, {
+				reply_markup: {
+					keyboard: [
+						[messages.SAYYES, messages.SAYNO],
+						[messages.BACK]
+					],
+					resize_keyboard: true,
+				},
+				parse_mode: 'HTML'
+			})
+		} else if(question && question.answered) {
+			const userWhoAsked = await Mongodb.findUser(question.user_id)
+			const message = `Выбранный вопрос: \nАвтор: ${userWhoAsked.first_name} (@${userWhoAsked.username})\nОтвет получен: ${question.answered ? 'Да' : 'Нет'}\nВопрос: ${question.question}. \nОтвет: ${question.answer}`
+			await ctx.telegram.sendMessage(ctx.chat.id, message);
+
+		} else {
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Не нашел вопрос')
+			await this.menuSelection(ctx,user);
+		}
+	}
+
+	async answeringQuestionHandler(ctx, user) {
+		const answer = ctx.update.message.text
+		const question = await Mongodb.findQuestion(user.current_action.questionIndex)
+		const notionPageID = question.notionPageID;
+		const message = `Привет! Ты задавал вопрос: \n${question.question}\nОтвечаю:\n${answer}`
+
+		await Mongodb.updateQuestionAnswer(question.index, answer)
+		await notion.updateQuestionNotion(notionPageID, answer)
+
+		await ctx.telegram.sendMessage(question.user_id, message, {parse_mode: 'HTML'});
+		await this.resetLastAction(user);
+		await ctx.telegram.sendMessage(ctx.chat.id, 'Ответ отправлен')
+		await this.showAdminMenu(ctx);
+	}
+
+	async sayYesHandler(ctx) {
+		const user = await Mongodb.findUser(ctx.from.id);
+		const index = user.current_action.questionIndex
+		if (user.current_action.action === action.QUESTIONSELECTED) {
+			await Mongodb.userBD.updateOne({id: user.id}, {
+				$set: {
+					current_action: {
+						action: 'answering_question',
+						questionIndex: index,
+					},
+				}
+			})
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Отлично, напишите ответ на выбранный ответ и он будет автоматически отправлен человеку, который его задал.', {
+				reply_markup: {
+					keyboard: [
+						[messages.BACK]
+					],
+					resize_keyboard: true,
+				},
+				parse_mode: 'HTML'
+			})
+		}
+	}
+
+	async sayNoHandler(ctx) {
+		const user = await Mongodb.findUser(ctx.from.id)
+		await ctx.telegram.sendMessage(ctx.chat.id, 'Ну как знаешь')
+		await this.resetLastAction(user);
+		await this.showAdminMenu(ctx);
+	}
+
+	async selectQuestionHandler(ctx) {
+		const user = await Mongodb.findUser(ctx.from.id)
+		if (this.checkIsAdmin(user)) {
+			await Mongodb.userBD.updateOne({id: user.id}, {
+				$set: {
+					current_action: {
+						action: 'select_question',
+					},
+				}
+			})
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Напишите индекс вопроса цифрой', {
+				reply_markup: {
+					keyboard: [
+						[messages.BACK]
+					],
+					resize_keyboard: true,
+				},
+			})
+		}
+	}
+
+	async makeNotionQuestionPage(index, question, userID) {
+	 const pageID = await notion.createQuestionNotion(question, userID, index)
+		return await Mongodb.updateQuestionNotionPageID(index,pageID);
+	}
+
+	async makeNotionPostPage(index, post, userID, type) {
+		const pageID = await notion.createPostNotion(post, userID, index, type)
+		return await Mongodb.updatePostNotionPageID(index,pageID);
+	}
+
 	async answerQuestionHandler(ctx, user) {
 		const askedQuestion = ctx.update.message.text;
+		const questions = await Mongodb.getAllQuestions();
+		const index = questions.length + 1;
 		const insertQuestion = {
 			question: askedQuestion,
 			user_id: user.id,
 			date: new Date().toISOString(),
+			index: index,
+			answered: false
 		}
 		await Mongodb.questionsBD.insertOne(insertQuestion)
 
 		await this.resetLastAction(user)
 
-		return await ctx.telegram.sendMessage(ctx.chat.id, 'Я тебя услышал, отвечу в ближайшее время!💪',{
+		 await ctx.telegram.sendMessage(ctx.chat.id, `Я тебя услышал, твой вопрос номер: ${index}. Отвечу в ближайшее время!💪`,{
 			reply_markup: {
 				keyboard: [
 					[messages.SUGGESTNEWS, messages.IWANTTOSPEAK],
@@ -519,8 +647,9 @@ class MessagesHandler {
 				],
 				resize_keyboard: true,
 			},
-
 		})
+
+		await this.makeNotionQuestionPage(index, askedQuestion, user.id)
 	}
 
 	async answerIdeaHandler(ctx, user) {

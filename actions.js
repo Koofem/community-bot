@@ -4,7 +4,10 @@ const actions = {
 	IWANTTOSPEAK : "want_to_speak",
 	GIVEIDEA : "give_idea",
 	ASKQUESTION : "ask_question",
-	MASSIVEMESSAGE: "massive_message"
+	MASSIVEMESSAGE: "massive_message",
+	SELECTQUESTION: "select_question",
+	QUESTIONSELECTED:'question_selected',
+	ANSEWERINGQEUSTION: 'answering_question'
 }
 
 module.exports = actions

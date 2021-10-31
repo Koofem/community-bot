@@ -12,6 +12,12 @@ const messages = {
 		REGULARMENU: 'Пользовательское меню',
 		MASSIVEMESSAGE: 'Рассылка пользователям (бета)',
 		GETALLUSERS: 'Получить пользователей',
+		SELECTQUESTION: 'Получить вопрос для ответа по индексу',
+		GETALLQUESTIONS: 'Получить все заданные вопросы',
+		GETANSWEREDQUSTEIONS: 'Получить уже отвеченные вопросы',
+		GETUNANSWEREDQUSTEIONS: 'Получить вопросы на которые еще нет ответа',
+		SAYYES: 'Да',
+		SAYNO: 'Нет'
 }
 
 module.exports = messages

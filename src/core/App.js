@@ -48,6 +48,12 @@ startListening() {
 
   this.bot.hears(messages.GETALLUSERS, ctx=> msgHandler.getUsersHandler(ctx));
 
+  this.bot.hears(messages.SELECTQUESTION, ctx=> msgHandler.selectQuestionHandler(ctx));
+
+  this.bot.hears(messages.SAYYES, ctx=> msgHandler.sayYesHandler(ctx));
+
+  this.bot.hears(messages.SAYNO, ctx=> msgHandler.sayNoHandler(ctx));
+
   this.bot.on('text', (ctx) =>msgHandler.simpleMessageHandler(ctx));
 
   this.bot.on('photo', (ctx) => msgHandler.photoMessageHandler(ctx));

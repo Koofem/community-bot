@@ -37,6 +37,47 @@ class Mongodb {
 		return await this.userBD.find().toArray();
 	}
 
+	async getAllQuestions() {
+		return await this.questionsBD.find().toArray();
+	}
+
+	async getAllPost() {
+		return await this.postDB.find().toArray();
+	}
+
+	async findPost(index) {
+		return await this.postDB.findOne({index: Number(index)});
+	}
+
+	async updatePostNotionPageID(index, pageID) {
+		return await this.postDB.updateOne({index: index}, {
+			$set: {
+				notionPageID: pageID
+			}
+		})
+	}
+
+	async findQuestion(index) {
+		return await this.questionsBD.findOne({index: Number(index)});
+	}
+
+	async updateQuestionNotionPageID(index, pageID) {
+		return await this.questionsBD.updateOne({index: index}, {
+			$set: {
+				notionPageID: pageID
+			}
+		})
+	}
+
+	async updateQuestionAnswer(index, answer) {
+		return await this.questionsBD.updateOne({index: index}, {
+			$set: {
+				answered: true,
+				answer: answer
+			}
+		})
+	}
+
 	async findUser(id) {
 		return await this.userBD.findOne({id: id});
 	}
