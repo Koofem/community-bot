@@ -44,6 +44,8 @@ startListening() {
 
   this.bot.hears(messages.ADMINMENU, ctx=> msgHandler.showAdminMenu(ctx));
 
+  this.bot.hears(messages.GETNOTIONDATABASE, ctx => msgHandler.getNotion(ctx))
+
   this.bot.hears(messages.MASSIVEMESSAGE, ctx=> msgHandler.massiveMessageHandler(ctx));
 
   this.bot.hears(messages.GETALLUSERS, ctx=> msgHandler.getUsersHandler(ctx));

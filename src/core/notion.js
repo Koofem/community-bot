@@ -76,7 +76,6 @@ class Notion {
 		return response.id;
 	}
 	async updateQuestionNotion(notionID, answer) {
-		console.log(answer)
 	await this.client.pages.update({
 			page_id: notionID,
 			properties: {
@@ -164,6 +163,130 @@ class Notion {
 								type: 'text',
 								text: {
 									content: post
+								}
+							}
+						]}
+				}
+			]
+		})
+
+		return response.id;
+	}
+
+	async createSpeechNotion(speech, userID, index) {
+		const userBD = await Mongodb.findUser(userID)
+		const title = speech.slice(0, 15);
+		const userWhoAsked = `${userBD.first_name} (@${userBD.username})`;
+		const response = await this.client.pages.create({
+			parent: {
+				database_id: process.env.NOTION_SPEECH_DATABASE_TOKEN
+			},
+			icon: {
+				type: "emoji",
+				emoji: "🎙"
+			},
+			properties: {
+				title: {
+					title: [
+						{
+							text: {
+								content: title + '...',
+							},
+						},
+					],
+				},
+				"Статус": {
+					select: {
+						name: "Ожидает подтверждения"
+					}
+				},
+				"Выступающий": {
+					rich_text: [{
+						text: {
+							content: userWhoAsked
+						}
+					}],
+				},
+				"Индекс": {
+					rich_text: [{
+						text: {
+							content: index.toString()
+						}
+					}],
+				},
+			},
+			children: [
+				{
+					object: 'block',
+					type: 'paragraph',
+					paragraph: {
+						text:[
+							{
+								type: 'text',
+								text: {
+									content: speech
+								}
+							}
+						]}
+				}
+			]
+		})
+
+		return response.id;
+	}
+
+	async createIdeasNotion(idea, userID, index) {
+		const userBD = await Mongodb.findUser(userID)
+		const title = idea.slice(0, 15);
+		const userWhoAsked = `${userBD.first_name} (@${userBD.username})`;
+		const response = await this.client.pages.create({
+			parent: {
+				database_id: process.env.NOTION_IDEA_DATABASE_TOKEN
+			},
+			icon: {
+				type: "emoji",
+				emoji: "🎙"
+			},
+			properties: {
+				title: {
+					title: [
+						{
+							text: {
+								content: title + '...',
+							},
+						},
+					],
+				},
+				"Статус": {
+					select: {
+						name: "Ожидает подтверждения"
+					}
+				},
+				"Автор": {
+					rich_text: [{
+						text: {
+							content: userWhoAsked
+						}
+					}],
+				},
+				"Индекс": {
+					rich_text: [{
+						text: {
+							content: index.toString()
+						}
+					}],
+				},
+			},
+			children: [
+				{
+					object: 'block',
+					type: 'paragraph',
+					paragraph: {
+						text:[
+							{
+								type: 'text',
+								text: {
+									content: idea
 								}
 							}
 						]}

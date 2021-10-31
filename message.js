@@ -16,8 +16,9 @@ const messages = {
 		GETALLQUESTIONS: 'Получить все заданные вопросы',
 		GETANSWEREDQUSTEIONS: 'Получить уже отвеченные вопросы',
 		GETUNANSWEREDQUSTEIONS: 'Получить вопросы на которые еще нет ответа',
+		GETNOTIONDATABASE: 'Отдай базу Notion',
 		SAYYES: 'Да',
-		SAYNO: 'Нет'
+		SAYNO: 'Нет',
 }
 
 module.exports = messages

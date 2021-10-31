@@ -8,7 +8,6 @@ const notion = require('./notion')
 const MESSAGE_LIMIT = 4096;
 
 class MessagesHandler {
-
 	async saveOrUpdateUser(user) {
 		const userBD = await Mongodb.findUser(user.id)
 		if (userBD) {
@@ -147,7 +146,12 @@ class MessagesHandler {
 			const msg = 'Сообщения отправились, даже тебе, поздравляю!'
 			return this.showAdminMenu(ctx, msg);
 		})
+	}
 
+	async getNotion(ctx) {
+		const notion = 'https://rainbow-pantry-fcd.notion.site/Community-febc3168af11445bad0e9ba79df5a5f4'
+		const msg=`Забирай\n${notion}`
+		await ctx.telegram.sendMessage(ctx.chat.id, msg, {parse_mode: 'HTML'})
 
 	}
 
@@ -160,6 +164,7 @@ class MessagesHandler {
 				reply_markup: {
 					keyboard: [
 						[messages.MASSIVEMESSAGE, messages.GETALLUSERS],
+						[messages.GETNOTIONDATABASE],
 						[messages.SELECTQUESTION],
 						[messages.BACK]
 					],
@@ -325,7 +330,6 @@ class MessagesHandler {
 		})
 	}
 
-
 	async suggestNewsHandler(ctx) {
 		const userName = await this.findUserName(ctx.from);
 		const msg = userName ? `${userName}, отлично! Куда бы ты хотел опубликовать новость?`:
@@ -481,11 +485,14 @@ class MessagesHandler {
 	}
 
 	async answerSpeechHandler(ctx, user) {
+		const posts = await Mongodb.getAllSpeech();
+		const index = posts.length + 1;
 		const receivedSpeech = ctx.update.message.text;
 		const insertSpeech = {
 			speech: receivedSpeech,
 			user_id: user.id,
 			date: new Date().toISOString(),
+			index: index
 		}
 		await Mongodb.speechDB.insertOne(insertSpeech)
 
@@ -493,7 +500,7 @@ class MessagesHandler {
 
 		const theNote = '<a href="https://www.notion.so/foodtech-x5/8098da36c0474833ad5018c879b754b9">памятку для проведения воркшопов</a>'
 
-		return await ctx.telegram.sendMessage(ctx.chat.id, `Принято! Держи нашу ${theNote} 😀`, {
+		 await ctx.telegram.sendMessage(ctx.chat.id, `Принято! Держи нашу ${theNote} 😀`, {
 			reply_markup: {
 				keyboard: [
 					[messages.SUGGESTNEWS, messages.IWANTTOSPEAK],
@@ -504,6 +511,7 @@ class MessagesHandler {
 			},
 			parse_mode:'HTML'
 		})
+		await this.makeNotionSpeechPage(index, receivedSpeech, user.id)
 	}
 
 	async sendSimpleMessage(ctx, userName) {
@@ -546,11 +554,32 @@ class MessagesHandler {
 		}
 	}
 
+	async selectQuestionHandler(ctx) {
+		const user = await Mongodb.findUser(ctx.from.id)
+		if (this.checkIsAdmin(user)) {
+			await Mongodb.userBD.updateOne({id: user.id}, {
+				$set: {
+					current_action: {
+						action: 'select_question',
+					},
+				}
+			})
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Напишите индекс вопроса цифрой', {
+				reply_markup: {
+					keyboard: [
+						[messages.BACK]
+					],
+					resize_keyboard: true,
+				},
+			})
+		}
+	}
+
 	async answeringQuestionHandler(ctx, user) {
 		const answer = ctx.update.message.text
 		const question = await Mongodb.findQuestion(user.current_action.questionIndex)
 		const notionPageID = question.notionPageID;
-		const message = `Привет! Ты задавал вопрос: \n${question.question}\nОтвечаю:\n${answer}`
+		const message = `Привет! Ты задавал(а) вопрос: \n${question.question}\nОтвечаю:\n${answer}`
 
 		await Mongodb.updateQuestionAnswer(question.index, answer)
 		await notion.updateQuestionNotion(notionPageID, answer)
@@ -592,37 +621,6 @@ class MessagesHandler {
 		await this.showAdminMenu(ctx);
 	}
 
-	async selectQuestionHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
-		if (this.checkIsAdmin(user)) {
-			await Mongodb.userBD.updateOne({id: user.id}, {
-				$set: {
-					current_action: {
-						action: 'select_question',
-					},
-				}
-			})
-			await ctx.telegram.sendMessage(ctx.chat.id, 'Напишите индекс вопроса цифрой', {
-				reply_markup: {
-					keyboard: [
-						[messages.BACK]
-					],
-					resize_keyboard: true,
-				},
-			})
-		}
-	}
-
-	async makeNotionQuestionPage(index, question, userID) {
-	 const pageID = await notion.createQuestionNotion(question, userID, index)
-		return await Mongodb.updateQuestionNotionPageID(index,pageID);
-	}
-
-	async makeNotionPostPage(index, post, userID, type) {
-		const pageID = await notion.createPostNotion(post, userID, index, type)
-		return await Mongodb.updatePostNotionPageID(index,pageID);
-	}
-
 	async answerQuestionHandler(ctx, user) {
 		const askedQuestion = ctx.update.message.text;
 		const questions = await Mongodb.getAllQuestions();
@@ -653,17 +651,20 @@ class MessagesHandler {
 	}
 
 	async answerIdeaHandler(ctx, user) {
+		const ideas = await Mongodb.getAllIdeas();
+		const index = ideas.length + 1;
 		const receivedIdea = ctx.update.message.text;
 		const insertIdea = {
 			idea: receivedIdea,
 			user_id: user.id,
 			date: new Date().toISOString(),
+			index: index
 		}
 		await Mongodb.ideasBD.insertOne(insertIdea)
 
 		await this.resetLastAction(user)
 
-		return await ctx.telegram.sendMessage(ctx.chat.id, 'Я тебя услышал, на следующей встрече мы обязательно обсудим твои идеи и найдем лучший способ их реализации!💪', {
+		await ctx.telegram.sendMessage(ctx.chat.id, 'Я тебя услышал, на следующей встрече мы обязательно обсудим твои идеи и найдем лучший способ их реализации!💪', {
 			reply_markup: {
 				keyboard: [
 					[messages.SUGGESTNEWS, messages.IWANTTOSPEAK],
@@ -672,8 +673,9 @@ class MessagesHandler {
 				],
 				resize_keyboard: true,
 			},
-
 		})
+
+		await this.makeNotionIdeaPage(index, receivedIdea, user.id)
 	}
 
 	async resetLastAction(user) {
@@ -683,6 +685,28 @@ class MessagesHandler {
 			}
 		});
 	}
+
+	//Добавление в Notion
+	async makeNotionQuestionPage(index, question, userID) {
+		const pageID = await notion.createQuestionNotion(question, userID, index)
+		return await Mongodb.updateQuestionNotionPageID(index,pageID);
+	}
+
+	async makeNotionPostPage(index, post, userID, type) {
+		const pageID = await notion.createPostNotion(post, userID, index, type)
+		return await Mongodb.updatePostNotionPageID(index,pageID);
+	}
+
+	async makeNotionSpeechPage(index, speech, userID) {
+		const pageID = await notion.createSpeechNotion(speech, userID, index)
+		return await Mongodb.updateSpeechNotionPageID(index,pageID);
+	}
+
+	async makeNotionIdeaPage(index, idea, userID) {
+		const pageID = await notion.createIdeasNotion(idea, userID, index)
+		return await Mongodb.updateIdeasPageID(index, pageID);
+	}
+
 }
 
 const msgHandler = new MessagesHandler();

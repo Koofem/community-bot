@@ -41,22 +41,6 @@ class Mongodb {
 		return await this.questionsBD.find().toArray();
 	}
 
-	async getAllPost() {
-		return await this.postDB.find().toArray();
-	}
-
-	async findPost(index) {
-		return await this.postDB.findOne({index: Number(index)});
-	}
-
-	async updatePostNotionPageID(index, pageID) {
-		return await this.postDB.updateOne({index: index}, {
-			$set: {
-				notionPageID: pageID
-			}
-		})
-	}
-
 	async findQuestion(index) {
 		return await this.questionsBD.findOne({index: Number(index)});
 	}
@@ -74,6 +58,42 @@ class Mongodb {
 			$set: {
 				answered: true,
 				answer: answer
+			}
+		})
+	}
+
+	async getAllPost() {
+		return await this.postDB.find().toArray();
+	}
+
+	async getAllIdeas() {
+		return await this.ideasBD.find().toArray();
+	}
+
+	async getAllSpeech() {
+		return await this.speechDB.find().toArray();
+	}
+
+	async updatePostNotionPageID(index, pageID) {
+		return await this.postDB.updateOne({index: index}, {
+			$set: {
+				notionPageID: pageID
+			}
+		})
+	}
+
+	async updateSpeechNotionPageID(index, pageID) {
+		return await this.speechDB.updateOne({index: index}, {
+			$set: {
+				notionPageID: pageID
+			}
+		})
+	}
+
+	async updateIdeasPageID(index, pageID) {
+		return await this.ideasBD.updateOne({index: index}, {
+			$set: {
+				notionPageID: pageID
 			}
 		})
 	}
