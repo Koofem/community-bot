@@ -73,7 +73,7 @@ class MessagesHandler {
 
 		const promises = usersArr.map(user => {
 			return new Promise((res)=> {
-				return res(ctx.telegram.sendMessage(ctx.chat.id, `Имя: ${user.first_name} \nФамилия: ${user.last_name} \nНик: @${user.username}\nАдмин или нет🤔: ${user.admin ? 'Админ': 'не админ'}  \n\n\n`));
+				return res(ctx.telegram.sendMessage(ctx.chat.id, `Имя: ${user.first_name} \nФамилия: ${user.last_name} \nНик: @${user.username}\nАдмин или нет🤔: ${user.admin ? 'Админ': 'не админ'}`));
 			})
 		})
 		return Promise.all(promises).then(()=> {
