@@ -1,59 +1,24 @@
-const Mongodb = require('./mongodb');
-const lodash = require('../../lodash');
-const messages = require('../../message');
-const action = require('../../actions');
-const request = require('request')
-const notion = require('./notion')
+// const Mongodb = require('../src/core/mongodb');
+const lodash = require('../lodash');
+const messages = require('Constants/message');
+const actions = require('Constants/actions');
+const userBD = require('Models/MongoBD/UserBD')
+const {findUserName, resetLastAction, saveOrUpdateUser, checkIsAdmin, findAllUsers,
+	setActionToUser, getAllUsers, resetUserAction, findUser, checkCurrentAction,getPhotoID} = require('Helpers/helpers')
+// const notion = require('../src/core/notion')
 
 const MESSAGE_LIMIT = 4096;
 
 class MessagesHandler {
-	async saveOrUpdateUser(user) {
-		const userBD = await Mongodb.findUser(user.id)
-		if (userBD) {
-			const isUsersEqual = this._compare(user, userBD);
-			if (!isUsersEqual){
-				return await Mongodb.userBD.updateOne({id: userBD.id}, {
-					$set: {
-						first_name: user.first_name,
-						username: user.username,
-						last_name: user.last_name? user.last_name : ''
-					}
-				})
-			}
-		} else {
-			const insertUser = {
-				id: user.id,
-				first_name: user.first_name? user.first_name : '',
-				username: user.username,
-				last_name: user.last_name? user.last_name : ''
-			}
-
-			user.last_name ? insertUser.last_name = user.last_name : '';
-
-			return await Mongodb.userBD.insertOne(insertUser)
-		}
-
-	}
-
-	_compare(user, userBD) {
-		return (user.first_name === userBD.first_name && user.last_name === userBD.last_name && user.username === userBD.username)
-	}
-
-	async findUserName(user) {
-		const foundUser = await Mongodb.findUser(user.id)
-		return foundUser.first_name;
-	}
-
 	async restartAndStartCommandHandler(ctx) {
-		await this.saveOrUpdateUser(ctx.from)
-		const user = await Mongodb.findUser(ctx.from.id)
-		await this.resetLastAction(user);
-		await this.menuSelection(ctx,user);
+		await saveOrUpdateUser(ctx.from)
+		await resetLastAction(ctx.from);
+		await this.menuSelection(ctx);
 	}
 
-	async menuSelection(ctx, user) {
-		if (lodash.has(user, 'admin')) {
+	async menuSelection(ctx) {
+		const user = await findUser(ctx.from);
+		if (checkIsAdmin(user)) {
 			return this.showMenuSelection(ctx)
 		} else {
 			return this.showRegularMenu(ctx);
@@ -61,7 +26,7 @@ class MessagesHandler {
 	}
 
 	async showMenuSelection(ctx) {
-		const userName = await this.findUserName(ctx.from);
+		const userName = await findUserName(ctx.from);
 		const msg = `О великий и всемогущий(ая) ${userName}, как я могу услужить тебе?`
 		await ctx.telegram.sendMessage(ctx.chat.id, msg, {
 			reply_markup: {
@@ -73,26 +38,21 @@ class MessagesHandler {
 		})
 	}
 
-	checkIsAdmin(user) {
-		return lodash.has(user, 'admin')
-	}
 
 	async getUsersHandler(ctx) {
-		const usersArr = await Mongodb.getAllUsers();
+		const usersArr = await findAllUsers();
 		let message = '';
 		const timeout = setTimeout(() =>  {
 			ctx.telegram.sendMessage(ctx.chat.id, 'Думаю, может быть долго....');
 		}, 500)
 
 		const promises = usersArr.map(user => {
-			return new Promise((res, rej)=> {
+			return new Promise((res)=> {
 					message = message + `Имя: ${user.first_name} \nФамилия: ${user.last_name} \nНик: @${user.username}\nАдмин или нет🤔: ${user.admin ? 'Админ': 'не админ'}  \n\n\n`
 					return res();
 
 			})
 		})
-
-
 		return Promise.all(promises).then(()=> {
 			clearInterval(timeout);
 			ctx.telegram.sendMessage(ctx.chat.id, message)
@@ -102,15 +62,9 @@ class MessagesHandler {
 	}
 
 	async massiveMessageHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
-		if (this.checkIsAdmin(user)) {
-			await Mongodb.userBD.updateOne({id: user.id}, {
-				$set: {
-					current_action: {
-						action: 'massive_message',
-					},
-				}
-			})
+		const user = await findUser(ctx.from);
+		if (checkIsAdmin(user)) {
+			await setActionToUser(ctx.from, actions.MASSIVEMESSAGE)
 			await ctx.telegram.sendMessage(ctx.chat.id, 'Следующее сообщение будет отправлено всем, у кого запущен бот, осторожнее со словами и картинками!:)', {
 				reply_markup: {
 					keyboard: [
@@ -126,15 +80,16 @@ class MessagesHandler {
 	}
 
 	async answerMassiveMessageHandler(ctx, user) {
-		const usersArr = await Mongodb.getAllUsers();
+		console.log('f')
+		const usersArr = await getAllUsers();
 		const massiveMessage = ctx.update.message.text;
-		await this.resetLastAction(user);
+		await resetUserAction(user)
 		const timeout = setTimeout(()=> {
 			ctx.telegram.sendMessage(ctx.chat.id, 'Сообщения отправляются, это может занять время');
 		}, 500)
 
 		const promises = usersArr.map((user) => {
-			return new Promise((resolve, reject) => {
+			return new Promise((resolve) => {
 				ctx.telegram.sendMessage(user.id, massiveMessage).then(()=> {
 					return resolve();
 				})
@@ -149,6 +104,7 @@ class MessagesHandler {
 	}
 
 	async getNotion(ctx) {
+		//TODO->ПОМЕНЯТЬ ССЫЛКУ
 		const notion = 'https://rainbow-pantry-fcd.notion.site/Community-febc3168af11445bad0e9ba79df5a5f4'
 		const msg=`Забирай\n${notion}`
 		await ctx.telegram.sendMessage(ctx.chat.id, msg, {parse_mode: 'HTML'})
@@ -158,8 +114,8 @@ class MessagesHandler {
 	async showAdminMenu(ctx, extraMsg) {
 		const msg = 'Доступные функции';
 		const sendMessage = extraMsg ? extraMsg : msg
-		const user = await Mongodb.findUser(ctx.from.id)
-		if (this.checkIsAdmin(user)) {
+		const user = await findUser(ctx.from);
+		if (checkIsAdmin(user)) {
 			await ctx.telegram.sendMessage(ctx.chat.id, sendMessage, {
 				reply_markup: {
 					keyboard: [
@@ -178,8 +134,8 @@ class MessagesHandler {
 	}
 
 	async showRegularMenu(ctx, extraMsg) {
-		const userName = await this.findUserName(ctx.from)
-		const msg = "Чем я могу помочь?";
+		const userName = await findUserName(ctx.from)
+		const msg = "чем я могу помочь?";
 		const sendMessage = extraMsg ? `${userName}, ${extraMsg}` : `${userName}, ${msg}`
 		await ctx.telegram.sendMessage(ctx.chat.id, sendMessage, {
 			reply_markup: {
@@ -194,13 +150,15 @@ class MessagesHandler {
 	}
 
 	async timeTableHandler(ctx) {
-		const link = '<a href="https://juvenile-sailboat-95a.notion.site/f4f58fecffe4486c92649de506483d4b">ссылке</a>'
+		//TODO->ПРОВЕРИТЬ ССЫЛКУ
+		const link = '<a href="https://foodtech-x5.notion.site/1cbcc45d54f54514ba5dcf7289314632">ссылке</a>'
 		await ctx.telegram.sendMessage(ctx.chat.id, 'Супер, за нашим расписанием можно следить по '+ link, {
 			parse_mode:'HTML'
 		})
 	}
 
 	async informationHandler(ctx) {
+		//TODO-> ПОПРАВИТЬ (НОВОЕ ОПИСАНИЕ)
 		const techNewsLink = '<a href="https://t.me/joinchat/TzL23fprszHePDo5">Канала в телеграм X5 Tech News</a>'
 		const communityLink = '<a href="https://t.me/joinchat/S87gOoavoRmhet1O">Канала в телеграм X5 Tech Community</a>'
 		const discordLink = '<a href="https://discord.gg/CpejhRKxc2">Discord-сервера</a>'
@@ -218,16 +176,10 @@ class MessagesHandler {
 	}
 
 	async askQuestionHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
-		const userName = await this.findUserName(ctx.from);
+		const userName = await findUserName(ctx.from);
 		const msg = userName ? `${userName}, слушаю тебя! \nНапиши вопрос одним предложением!`: 'Слушаю тебя!\n Напиши вопрос одним предложением!';
-		await Mongodb.userBD.updateOne({id: user.id}, {
-			$set: {
-				current_action: {
-					action: 'ask_question',
-				},
-			}
-		})
+		await setActionToUser(ctx.from, actions.ASKQUESTION);
+
 		await ctx.telegram.sendMessage(ctx.chat.id, msg, {
 			parse_mode: 'HTML',
 			reply_markup: {
@@ -241,17 +193,10 @@ class MessagesHandler {
 	}
 
 	async speechHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
-		const userName = await this.findUserName(ctx.from);
+		const userName = await findUserName(ctx.from);
 		const msg = userName ? `${userName}, это просто потрясающе! В рамках комьюнити мы проводим как и небольшие воркшопы (15-40 минут), так более серьезные выступления для всего X5 FoodTech. Опиши свою идею одним сообщением, и мы с тобой свяжемся, чтобы выбрать удобный формат и дату!`:
 			'Это просто потрясающе! В рамках комьюнити мы проводим как и небольшие воркшопы (15-40 минут), так более серьезные выступления для всего X5 FoodTech. Опиши свою идею одним сообщением, и мы с тобой свяжемся, чтобы выбрать удобный формат и дату!';
-		await Mongodb.userBD.updateOne({id: user.id}, {
-			$set: {
-				current_action: {
-					action: 'want_to_speak',
-				},
-			}
-		})
+		await setActionToUser(ctx.from, actions.IWANTTOSPEAK);
 		await ctx.telegram.sendMessage(ctx.chat.id, msg, {
 			parse_mode: 'HTML',
 			reply_markup: {
@@ -265,17 +210,10 @@ class MessagesHandler {
 	}
 
 	async giveIdeaHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
-		const userName = await this.findUserName(ctx.from);
+		const userName = await findUserName(ctx.from);
 		const msg = userName ? `${userName}, замечательно! Мы прислушиваемся ко всем комментариям аудитории. Опиши пожалуйста мне все одним сообщением 🙂`:
 			'Замечательно! Мы прислушиваемся ко всем комментариям аудитории. Опиши пожалуйста мне все одним сообщением 🙂';
-		await Mongodb.userBD.updateOne({id: user.id}, {
-			$set: {
-				current_action: {
-					action: 'give_idea',
-				},
-			}
-		})
+		await setActionToUser(ctx.from, actions.GIVEIDEA);
 		await ctx.telegram.sendMessage(ctx.chat.id, msg, {
 			parse_mode: 'HTML',
 			reply_markup: {
@@ -289,15 +227,8 @@ class MessagesHandler {
 	}
 
 	async suggestExternalPostHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
 		const msg = "Я тебя услышал. Пожалуйста, опиши свою новость в одном сообщении, прикрепи требуемые ссылки, изображения также прошу тебя прислать ссылкой на внешний ресурс, иначе я не смогу их принять ☹️"
-		await Mongodb.userBD.updateOne({id: user.id}, {
-			$set: {
-				current_action: {
-					action: 'suggest_external_post',
-				},
-			}
-		})
+		await setActionToUser(ctx.from, actions.SUGGESTEXTERNALPOST);
 		await ctx.telegram.sendMessage(ctx.chat.id, msg, {
 			parse_mode: 'HTML',
 			reply_markup: {
@@ -310,15 +241,9 @@ class MessagesHandler {
 	}
 
 	async suggestPrivatePostHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
 		const msg = "Я тебя услышал. Пожалуйста, опиши свою новость в одном сообщении, прикрепи требуемые ссылки, изображения также прошу тебя прислать ссылкой на внешний ресурс, иначе я не смогу их принять ☹️"
-		await Mongodb.userBD.updateOne({id: user.id}, {
-			$set: {
-				current_action: {
-					action: 'suggest_private_post',
-				},
-			}
-		})
+		await setActionToUser(ctx.from, actions.SUGGESTPRIVATEPOST);
+
 		await ctx.telegram.sendMessage(ctx.chat.id, msg, {
 			parse_mode: 'HTML',
 			reply_markup: {
@@ -331,7 +256,7 @@ class MessagesHandler {
 	}
 
 	async suggestNewsHandler(ctx) {
-		const userName = await this.findUserName(ctx.from);
+		const userName = await findUserName(ctx.from);
 		const msg = userName ? `${userName}, отлично! Куда бы ты хотел опубликовать новость?`:
 			'отлично! Куда бы ты хотел опубликовать новость?';
 
@@ -348,47 +273,45 @@ class MessagesHandler {
 	}
 
 	async simpleMessageHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
-		const userName = await this.findUserName(ctx.from);
-
-		if (lodash.has(user, 'current_action')) {
-				switch (user.current_action.action) {
-					case action.ASKQUESTION:
+		const user = await findUser(ctx.from)
+		if (checkCurrentAction(user)) {
+				switch (user.current_action) {
+					case actions.ASKQUESTION:
 						return this.answerQuestionHandler(ctx, user);
-						break;
-					case action.GIVEIDEA:
+					case actions.GIVEIDEA:
 						return this.answerIdeaHandler(ctx, user);
-						break;
-					case action.IWANTTOSPEAK:
+					case actions.IWANTTOSPEAK:
 						return this.answerSpeechHandler(ctx, user);
-						break;
-					case action.SUGGESTEXTERNALPOST:
+					case actions.SUGGESTEXTERNALPOST:
 						return this.answerSuggestExternalPostHandler(ctx, user);
-						break;
-					case action.SUGGESTPRIVATEPOST:
+					case actions.SUGGESTPRIVATEPOST:
 						return this.answerSuggestPrivatePostHandler(ctx, user);
-						break;
-					case action.MASSIVEMESSAGE:
+					case actions.MASSIVEMESSAGE:
 						return this.answerMassiveMessageHandler(ctx, user);
-					case action.SELECTQUESTION:
+					case actions.SELECTQUESTION:
 						return this.selectedQuestionHandler(ctx, user)
-					case action.ANSEWERINGQEUSTION:
+					case actions.ANSEWERINGQEUSTION:
 						return this.answeringQuestionHandler(ctx, user)
 				}
 		} else {
-			return await this.sendSimpleMessage(ctx, userName);
+			return await this.sendSimpleMessage(ctx, await findUserName(user));
 		}
 	}
 
 	async photoMessageHandler(ctx) {
-		const photoID = await this.getPhotoID(ctx);
-		const user = await Mongodb.findUser(ctx.from.id)
-		const usersArr = await Mongodb.getAllUsers();
-		if (this.checkIsAdmin(user) && lodash.get(user, 'current_action.action', false ) === action.MASSIVEMESSAGE) {
-			await this.resetLastAction(user);
-			const timeout = setTimeout(()=> {
-				ctx.telegram.sendMessage(ctx.chat.id, 'Сообщения отправляются, это может занять время');
-			}, 500)
+		const timeout = setTimeout(()=> {
+			ctx.telegram.sendMessage(ctx.chat.id, 'Сообщения отправляются, это может занять время');
+		}, 500)
+		let photoID = null
+		await getPhotoID(ctx).then((id) => {
+			photoID = id
+		}).catch((e)=> {
+			return ctx.telegram.sendMessage(ctx.chat.id, `Что-то пошло не так, ошибка: ${e}`)
+		})
+		const user = await findUser(ctx.from)
+		const usersArr = await getAllUsers();
+		if (checkIsAdmin(user) && lodash.get(user, 'current_action', false ) === actions.MASSIVEMESSAGE) {
+			await resetLastAction(user);
 			const massiveMessage = ctx.update.message.caption ? ctx.update.message.caption : '';
 			const promises = usersArr.map((user) => {
 				return new Promise((resolve)=> {
@@ -411,19 +334,6 @@ class MessagesHandler {
 			const msg = 'картинки не принимаю 🙈'
 			return this.showRegularMenu(ctx, msg);
 		}
-	}
-
-	async getPhotoID(ctx) {
-		let photoID = null;
-		const url = `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${ctx.message.photo[ctx.message.photo.length - 1].file_id}`;
-		return new Promise((resolve) => {
-			 request(url, (err, response, body)=> {
-				if (err) return resolve(photoID);
-				const bodyObject = JSON.parse(body);
-				 photoID = bodyObject.result.file_id;
-				return resolve(photoID);
-			})
-		})
 	}
 
 	async answerSuggestExternalPostHandler(ctx, user) {
@@ -678,13 +588,7 @@ class MessagesHandler {
 		await this.makeNotionIdeaPage(index, receivedIdea, user.id)
 	}
 
-	async resetLastAction(user) {
-		await Mongodb.userBD.updateOne({id: user.id}, {
-			$unset:{
-				current_action: ''
-			}
-		});
-	}
+
 
 	//Добавление в Notion
 	async makeNotionQuestionPage(index, question, userID) {

@@ -1,10 +1,8 @@
 const { Telegraf } = require('telegraf')
 const fs = require('fs')
 require('dotenv')
-const messages = require('../../message');
-const msgHandler = require('./messagesHandler')
-const Mongodb = require("./mongodb");
-const Notion = require("./notion");
+const messages = require('Constants/message');
+const msgHandler = require('Controllers/messagesHandler')
 
 
 class TelegramBot {
@@ -12,9 +10,7 @@ class TelegramBot {
   bot = new Telegraf(process.env.BOT_TOKEN)
 
   async init() {
-    await Mongodb.init();
     await this.startListening();
-    await Notion.init();
   }
 
 startListening() {
