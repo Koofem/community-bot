@@ -12,7 +12,7 @@ class Mongodb {
 		try {
 			await this.client.connect();
 			this.db = await this.client.db(process.env.MONGO_DB_BASE);
-			console.log('Все заебись, база подключена')
+			console.log('Все заебись, основная база подключена')
 		} catch (e) {
 			console.log(e)
 		}

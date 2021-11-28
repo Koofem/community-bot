@@ -1,5 +1,4 @@
 const { Client } = require('@notionhq/client');
-const Mongodb = require("./mongodb");
 
 class Notion {
 	constructor() {}
@@ -14,8 +13,7 @@ class Notion {
 		})
 	}
 
-	async createQuestionNotion(question, userID, index) {
-		const userBD = await Mongodb.findUser(userID)
+	async createQuestionNotion(question, index, userBD) {
 		const title = question.slice(0, 15);
 		const userWhoAsked = `${userBD.first_name} (@${userBD.username})`;
 		const response = await this.client.pages.create({
@@ -105,8 +103,7 @@ class Notion {
 	})
 	}
 
-	async createPostNotion(post, userID, index, type) {
-		const userBD = await Mongodb.findUser(userID)
+	async createPostNotion(post, userBD, index, type) {
 		const title = post.slice(0, 15);
 		const channel = type === 'private' ? 'Канал X5 Tech Community' : 'Канал X5 Tech News';
 		const userWhoAsked = `${userBD.first_name} (@${userBD.username})`;
@@ -173,8 +170,7 @@ class Notion {
 		return response.id;
 	}
 
-	async createSpeechNotion(speech, userID, index) {
-		const userBD = await Mongodb.findUser(userID)
+	async createSpeechNotion(speech, userBD, index) {
 		const title = speech.slice(0, 15);
 		const userWhoAsked = `${userBD.first_name} (@${userBD.username})`;
 		const response = await this.client.pages.create({
@@ -235,8 +231,7 @@ class Notion {
 		return response.id;
 	}
 
-	async createIdeasNotion(idea, userID, index) {
-		const userBD = await Mongodb.findUser(userID)
+	async createIdeasNotion(idea, userBD, index) {
 		const title = idea.slice(0, 15);
 		const userWhoAsked = `${userBD.first_name} (@${userBD.username})`;
 		const response = await this.client.pages.create({

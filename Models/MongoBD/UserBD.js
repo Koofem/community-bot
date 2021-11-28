@@ -16,6 +16,10 @@ class UserBD {
 		return await this.userBD.findOne({id: user.id});
 	}
 
+	async findUserById(id) {
+		return await this.userBD.findOne({id: id});
+	}
+
 	async saveOrUpdateUser(user) {
 		return await this.userBD.findOneAndUpdate({id: user.id}, {
 			$set: {
@@ -40,10 +44,20 @@ class UserBD {
 		}, {upsert: true});
 	}
 
+	async setActionWithPropertyToUser(user, action, property) {
+		return await this.userBD.findOneAndUpdate({id: user.id}, {
+			$set: {
+				current_action: action,
+				...property
+			},
+		}, {upsert: true});
+	}
+
 	async resetUserAction(user) {
 		return await this.userBD.updateOne({id: user.id}, {
 			$unset: {
-				current_action: 1
+				current_action: 1,
+				questionIndex: 1
 			}
 		})
 	}

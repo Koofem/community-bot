@@ -1,10 +1,36 @@
-// const Mongodb = require('../src/core/mongodb');
 const lodash = require('../lodash');
 const messages = require('Constants/message');
 const actions = require('Constants/actions');
-const userBD = require('Models/MongoBD/UserBD')
-const {findUserName, resetLastAction, saveOrUpdateUser, checkIsAdmin, findAllUsers,
-	setActionToUser, getAllUsers, resetUserAction, findUser, checkCurrentAction,getPhotoID} = require('Helpers/helpers')
+const {
+	findUserName,
+	resetLastAction,
+	saveOrUpdateUser,
+	checkIsAdmin,
+	findAllUsers,
+	setActionToUser,
+	getAllUsers,
+	resetUserAction,
+	findUser,
+	checkCurrentAction,
+	getPhotoID,
+	getAllQuestions,
+	writeNewQuestion,
+	makeNotionQuestionPage,
+	getAllIdeas,
+	writeNewIdea,
+	makeNotionIdeaPage,
+	getAllSpeech,
+	writeNewSpeech,
+	makeNotionSpeechPage,
+	getAllPosts,
+	writeNewPost,
+	makeNotionPostPage,
+	findQuestion,
+	findUserById,
+	setActionWithPropertyToUser,
+	updateQuestionAnswer,
+	updateQuestionNotion
+} = require('Helpers/helpers')
 // const notion = require('../src/core/notion')
 
 const MESSAGE_LIMIT = 4096;
@@ -57,8 +83,6 @@ class MessagesHandler {
 			clearInterval(timeout);
 			ctx.telegram.sendMessage(ctx.chat.id, message)
 		});
-
-
 	}
 
 	async massiveMessageHandler(ctx) {
@@ -79,8 +103,82 @@ class MessagesHandler {
 		}
 	}
 
+	async newsletterMessageHandler(ctx) {
+		const user = await findUser(ctx.from);
+		if (checkIsAdmin(user)) {
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Отлично, выбери куда хочешь написать', {
+				reply_markup: {
+					inline_keyboard: [
+						[
+							{
+								text: messages.NEWSLETTERTOPRIVATECHANNEL,
+								callback_data: actions.NEWSLETTERTOPRIVATECHANNEL
+							},
+							{
+								text: messages.NEWSLETTERTOEXTERNALCHANNEL,
+								callback_data: actions.NEWSLETTERTOEXTERNALCHANNEL
+							},
+							{
+								text: messages.NEWSLETTERTOALL,
+								callback_data: actions.NEWSLETTERALL
+							},
+							]
+					],
+				},
+				resize_keyboard: true,
+			})
+		} else {
+			const msg = 'ты немного ошибся, скорее всего тебе нужно другое меню!:)'
+			return this.showRegularMenu(ctx, msg);
+		}
+	}
+
+	async newsLetterToAllHandler(ctx) {
+		const user = await findUser(ctx.from);
+		if (checkIsAdmin(user)) {
+			await setActionToUser(ctx.from, actions.NEWSLETTERALL);
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Следующее сообщение будет отправлено во все каналы, осторожнее со словами и картинками!:)', {
+				reply_markup: {
+					keyboard: [
+						[messages.BACK]
+					],
+					resize_keyboard: true,
+				},
+			})
+		}
+	}
+
+	async newsLetterToExternalChannel(ctx) {
+		const user = await findUser(ctx.from);
+		if (checkIsAdmin(user)) {
+			await setActionToUser(ctx.from, actions.NEWSLETTERTOEXTERNALCHANNEL);
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Следующее сообщение будет отправлено в канал X5 Tech News, осторожнее со словами и картинками!:)', {
+				reply_markup: {
+					keyboard: [
+						[messages.BACK]
+					],
+					resize_keyboard: true,
+				},
+			})
+		}
+	}
+
+	async newsLetterToPrivateChannel(ctx) {
+		const user = await findUser(ctx.from);
+		if (checkIsAdmin(user)) {
+			await setActionToUser(ctx.from, actions.NEWSLETTERTOPRIVATECHANNEL);
+			await ctx.telegram.sendMessage(ctx.chat.id, 'Следующее сообщение будет отправлено в канал X5 Tech Community, осторожнее со словами и картинками!:)', {
+				reply_markup: {
+					keyboard: [
+						[messages.BACK]
+					],
+					resize_keyboard: true,
+				},
+			})
+		}
+	}
+
 	async answerMassiveMessageHandler(ctx, user) {
-		console.log('f')
 		const usersArr = await getAllUsers();
 		const massiveMessage = ctx.update.message.text;
 		await resetUserAction(user)
@@ -104,8 +202,7 @@ class MessagesHandler {
 	}
 
 	async getNotion(ctx) {
-		//TODO->ПОМЕНЯТЬ ССЫЛКУ
-		const notion = 'https://rainbow-pantry-fcd.notion.site/Community-febc3168af11445bad0e9ba79df5a5f4'
+		const notion = 'https://www.notion.so/foodtech-x5/15a362b1538f4b53895e19721911fa41'
 		const msg=`Забирай\n${notion}`
 		await ctx.telegram.sendMessage(ctx.chat.id, msg, {parse_mode: 'HTML'})
 
@@ -120,7 +217,7 @@ class MessagesHandler {
 				reply_markup: {
 					keyboard: [
 						[messages.MASSIVEMESSAGE, messages.GETALLUSERS],
-						[messages.GETNOTIONDATABASE],
+						[messages.GETNOTIONDATABASE, messages.NEWSLETTER],
 						[messages.SELECTQUESTION],
 						[messages.BACK]
 					],
@@ -158,17 +255,16 @@ class MessagesHandler {
 	}
 
 	async informationHandler(ctx) {
-		//TODO-> ПОПРАВИТЬ (НОВОЕ ОПИСАНИЕ)
 		const techNewsLink = '<a href="https://t.me/joinchat/TzL23fprszHePDo5">Канала в телеграм X5 Tech News</a>'
 		const communityLink = '<a href="https://t.me/joinchat/S87gOoavoRmhet1O">Канала в телеграм X5 Tech Community</a>'
-		const discordLink = '<a href="https://discord.gg/CpejhRKxc2">Discord-сервера</a>'
 		const Olya = '<a href="https://t.me/opastuk">Оля Пастухова</a>'
 		const Nikita = '<a href="https://t.me/NickPanormov">Никита Панормов</a>'
 		const Tolya = '<a href="https://t.me/ababin71517">Толя Бабин</a>'
+		const ZOOM = '<a href="https://us02web.zoom.us/j/5887041256">ЗДЕСЬ</a>'
 		const message = "Это просто здорово! Сейчас наше комьюнити состоит из: \n\n" + techNewsLink + ", куда мы публикуем самые интересные новости с просторов технического мира.\n\n" +
 			communityLink + ", куда мы публикуем всякие интересные внутренности, а так же записи всех выступлений, проводимых комьюнити. Если ты решил сложную рабочую задачу, придумали что-то крутое и просто хочешь поделиться новинками в команде, то тебе сюда!\n\n" +
-			discordLink + ", где мы иногда общаемся\n\n" + 'Модератором комьюнити является ' + Olya + ', по любым вопросам и предложениям можешь писать ей напрямую, она будет рада ответить. Большую поддержку комьюнити так же оказывают ' + Nikita + ', и '+ Tolya +', они ведут свои рубрики и делают очень много крутого для нас.' +
-			'\n\nНо сердце комьюнити - это ты! Каждый из нас - одинаково важная часть команды. Давайте делиться знаниями, развиваться и учиться вместе! Здесь всех любят ❤️'
+			'<b>Каждую среду в 14:00</b> мы собираемся ' + `<b>${ZOOM}</b>` + ' ,общаемся, воркшопимся и веселимся\n\n' + 'https://us02web.zoom.us/j/5887041256 | <b>Болталка (935030 код организатора)</b>\n\n' + 'Модератором комьюнити является ' + Olya + ', по любым вопросам и предложениям можешь писать ей напрямую, она будет рада ответить. Большую поддержку комьюнити так же оказывают ' + Nikita + ', и '+ Tolya +', они ведут свои рубрики и делают очень много крутого для нас.\n\n' +
+			'(https://www.notion.so/11129fe6272a4e3bb3353c7daeb2854b) Более полная инфа вот тут и в закрепе паблика коомьюнити. Ознакомься обязательно!\n\n' + 'Но сердце комьюнити - это ты! Каждый из нас - одинаково важная часть команды. Давайте делиться знаниями, развиваться и учиться вместе! Здесь всех любят ❤️'
 
 		await ctx.telegram.sendMessage(ctx.chat.id, message, {
 			parse_mode:'HTML'
@@ -288,6 +384,13 @@ class MessagesHandler {
 						return this.answerSuggestPrivatePostHandler(ctx, user);
 					case actions.MASSIVEMESSAGE:
 						return this.answerMassiveMessageHandler(ctx, user);
+					case actions.NEWSLETTERALL:
+						return this.answerNewsletterAllHandler(ctx,user)
+					case actions.NEWSLETTERTOEXTERNALCHANNEL:
+						return this.answerNewsletterExternalChannel(ctx,user)
+					case actions.NEWSLETTERTOPRIVATECHANNEL: {
+						return this.answerNewsletterPrivateChannel(ctx,user)
+					}
 					case actions.SELECTQUESTION:
 						return this.selectedQuestionHandler(ctx, user)
 					case actions.ANSEWERINGQEUSTION:
@@ -296,6 +399,78 @@ class MessagesHandler {
 		} else {
 			return await this.sendSimpleMessage(ctx, await findUserName(user));
 		}
+	}
+
+	async answerNewsletterAllHandler(ctx, user) {
+		const massiveMessage = ctx.update.message.text;
+		await resetUserAction(user)
+		const timeout = setTimeout(()=> {
+			ctx.telegram.sendMessage(ctx.chat.id, 'Сообщения отправляются, это может занять время');
+		}, 500)
+
+		const channels = [process.env.PRIVATECHANNEL, process.env.EXTERNALCHANNEL]
+
+		const promises = channels.map((channel) => {
+			return new Promise((resolve) => {
+				ctx.telegram.sendMessage(channel, massiveMessage).then(()=> {
+					return resolve();
+				})
+			})
+		})
+
+		Promise.all(promises).then(() => {
+			clearInterval(timeout)
+			const msg = 'Готово!'
+			return this.showAdminMenu(ctx, msg);
+		})
+	}
+
+	async answerNewsletterPrivateChannel(ctx, user) {
+		const massiveMessage = ctx.update.message.text;
+		await resetUserAction(user)
+		const timeout = setTimeout(()=> {
+			ctx.telegram.sendMessage(ctx.chat.id, 'Сообщения отправляются, это может занять время');
+		}, 500)
+
+		const channels = [process.env.PRIVATECHANNEL]
+
+		const promises = channels.map((channel) => {
+			return new Promise((resolve) => {
+				ctx.telegram.sendMessage(channel, massiveMessage).then(()=> {
+					return resolve();
+				})
+			})
+		})
+
+		Promise.all(promises).then(() => {
+			clearInterval(timeout)
+			const msg = 'Готово!'
+			return this.showAdminMenu(ctx, msg);
+		})
+	}
+
+	async answerNewsletterExternalChannel(ctx, user) {
+		const massiveMessage = ctx.update.message.text;
+		await resetUserAction(user)
+		const timeout = setTimeout(()=> {
+			ctx.telegram.sendMessage(ctx.chat.id, 'Сообщения отправляются, это может занять время');
+		}, 500)
+
+		const channels = [process.env.EXTERNALCHANNEL]
+
+		const promises = channels.map((channel) => {
+			return new Promise((resolve) => {
+				ctx.telegram.sendMessage(channel, massiveMessage).then(()=> {
+					return resolve();
+				})
+			})
+		})
+
+		Promise.all(promises).then(() => {
+			clearInterval(timeout)
+			const msg = 'Готово!'
+			return this.showAdminMenu(ctx, msg);
+		})
 	}
 
 	async photoMessageHandler(ctx) {
@@ -324,20 +499,82 @@ class MessagesHandler {
 					 })
 				})
 			});
-
 			await Promise.all(promises).then(() => {
 				clearInterval(timeout)
 				const msg = 'Сообщения отправились, даже тебе, поздравляю!'
 				return this.showAdminMenu(ctx, msg);
 			})
-		} else {
+		} else if (checkIsAdmin(user) && lodash.get(user, 'current_action', false ) === actions.NEWSLETTERALL) {
+			await resetLastAction(user);
+			const channels = [process.env.PRIVATECHANNEL, process.env.EXTERNALCHANNEL]
+			const massiveMessage = ctx.update.message.caption ? ctx.update.message.caption : '';
+			const promises = channels.map((channel) => {
+				return new Promise((resolve)=> {
+					return ctx.telegram.sendPhoto(channel, photoID, {
+						caption: massiveMessage,
+						disable_notification: true,
+					}).then(()=> {
+						return resolve();
+
+					})
+				})
+			});
+			await Promise.all(promises).then(() => {
+				clearInterval(timeout)
+				const msg = 'Готово!'
+				return this.showAdminMenu(ctx, msg);
+			})
+
+		} else if (checkIsAdmin(user) && lodash.get(user, 'current_action', false ) === actions.NEWSLETTERTOEXTERNALCHANNEL) {
+			await resetLastAction(user);
+			const channels = [process.env.EXTERNALCHANNEL]
+			const massiveMessage = ctx.update.message.caption ? ctx.update.message.caption : '';
+			const promises = channels.map((channel) => {
+				return new Promise((resolve) => {
+					return ctx.telegram.sendPhoto(channel, photoID, {
+						caption: massiveMessage,
+						disable_notification: true,
+					}).then(() => {
+						return resolve();
+
+					})
+				})
+			});
+			await Promise.all(promises).then(() => {
+				clearInterval(timeout)
+				const msg = 'Готово!'
+				return this.showAdminMenu(ctx, msg);
+			})
+
+		} else if (checkIsAdmin(user) && lodash.get(user, 'current_action', false ) === actions.NEWSLETTERTOPRIVATECHANNEL) {
+			await resetLastAction(user);
+			const channels = [process.env.PRIVATECHANNEL]
+			const massiveMessage = ctx.update.message.caption ? ctx.update.message.caption : '';
+			const promises = channels.map((channel) => {
+				return new Promise((resolve)=> {
+					return ctx.telegram.sendPhoto(channel, photoID, {
+						caption: massiveMessage,
+						disable_notification: true,
+					}).then(()=> {
+						return resolve();
+
+					})
+				})
+			});
+			await Promise.all(promises).then(() => {
+				clearInterval(timeout)
+				const msg = 'Готово!'
+				return this.showAdminMenu(ctx, msg);
+			})
+
+		}		else {
 			const msg = 'картинки не принимаю 🙈'
 			return this.showRegularMenu(ctx, msg);
 		}
 	}
 
 	async answerSuggestExternalPostHandler(ctx, user) {
-		const posts = await Mongodb.getAllPost();
+		const posts = await getAllPosts();
 		const index = posts.length + 1;
 		const receivedExternalPost = ctx.update.message.text;
 		const insertExternalPost = {
@@ -347,9 +584,9 @@ class MessagesHandler {
 			date: new Date().toISOString(),
 			index: index
 		}
-		await Mongodb.postDB.insertOne(insertExternalPost)
+		await writeNewPost(insertExternalPost)
 
-		await this.resetLastAction(user)
+		await resetLastAction(user)
 
 		await ctx.telegram.sendMessage(ctx.chat.id, "Спасибо! Твоя новость принята и будет опубликована в ближайшее время!", {
 			reply_markup: {
@@ -362,11 +599,11 @@ class MessagesHandler {
 			},
 		})
 
-		await this.makeNotionPostPage(index,receivedExternalPost, user.id, 'public')
+		await makeNotionPostPage(index,receivedExternalPost, user, 'public')
 	}
 
 	async answerSuggestPrivatePostHandler(ctx, user) {
-		const posts = await Mongodb.getAllPost();
+		const posts = await getAllPosts();
 		const index = posts.length + 1;
 		const receivedPrivatePost = ctx.update.message.text;
 		const insertPrivatePost = {
@@ -377,9 +614,9 @@ class MessagesHandler {
 			index: index
 		}
 
-		await Mongodb.postDB.insertOne(insertPrivatePost)
+		await writeNewPost(insertPrivatePost)
 
-		await this.resetLastAction(user)
+		await resetLastAction(user)
 
 		await ctx.telegram.sendMessage(ctx.chat.id, "Спасибо! Твоя новость принята и будет опубликована в ближайшее время!", {
 			reply_markup: {
@@ -391,11 +628,11 @@ class MessagesHandler {
 				resize_keyboard: true,
 			},
 		})
-		await this.makeNotionPostPage(index,receivedPrivatePost, user.id, 'private')
+		await makeNotionPostPage(index,receivedPrivatePost, user, 'private')
 	}
 
 	async answerSpeechHandler(ctx, user) {
-		const posts = await Mongodb.getAllSpeech();
+		const posts = await getAllSpeech();
 		const index = posts.length + 1;
 		const receivedSpeech = ctx.update.message.text;
 		const insertSpeech = {
@@ -404,9 +641,9 @@ class MessagesHandler {
 			date: new Date().toISOString(),
 			index: index
 		}
-		await Mongodb.speechDB.insertOne(insertSpeech)
+		await writeNewSpeech(insertSpeech)
 
-		await this.resetLastAction(user)
+		await resetLastAction(user)
 
 		const theNote = '<a href="https://www.notion.so/foodtech-x5/8098da36c0474833ad5018c879b754b9">памятку для проведения воркшопов</a>'
 
@@ -421,7 +658,7 @@ class MessagesHandler {
 			},
 			parse_mode:'HTML'
 		})
-		await this.makeNotionSpeechPage(index, receivedSpeech, user.id)
+		await makeNotionSpeechPage(index, receivedSpeech, user)
 	}
 
 	async sendSimpleMessage(ctx, userName) {
@@ -431,17 +668,10 @@ class MessagesHandler {
 
 	async selectedQuestionHandler(ctx, user) {
 		const index = ctx.update.message.text
-		const question = await Mongodb.findQuestion(index);
+		const question = await findQuestion(index);
 		if (question && !question.answered) {
-			const userWhoAsked = await Mongodb.findUser(question.user_id)
-			await Mongodb.userBD.updateOne({id: user.id}, {
-				$set: {
-					current_action: {
-						action: 'question_selected',
-						questionIndex: index
-					},
-				}
-			})
+			const userWhoAsked = await findUserById(question.user_id)
+			await setActionWithPropertyToUser(user, actions.QUESTIONSELECTED, {questionIndex: index})
 			const message = `Выбранный вопрос: \nАвтор: ${userWhoAsked.first_name} (@${userWhoAsked.username})\nОтвет получен: ${question.answered ? 'Да' : 'Нет'}\nВопрос: ${question.question}. \nБудете отвечать?`
 			await ctx.telegram.sendMessage(ctx.chat.id, message, {
 				reply_markup: {
@@ -454,7 +684,7 @@ class MessagesHandler {
 				parse_mode: 'HTML'
 			})
 		} else if(question && question.answered) {
-			const userWhoAsked = await Mongodb.findUser(question.user_id)
+			const userWhoAsked = await findUser(question.user_id)
 			const message = `Выбранный вопрос: \nАвтор: ${userWhoAsked.first_name} (@${userWhoAsked.username})\nОтвет получен: ${question.answered ? 'Да' : 'Нет'}\nВопрос: ${question.question}. \nОтвет: ${question.answer}`
 			await ctx.telegram.sendMessage(ctx.chat.id, message);
 
@@ -465,15 +695,9 @@ class MessagesHandler {
 	}
 
 	async selectQuestionHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
-		if (this.checkIsAdmin(user)) {
-			await Mongodb.userBD.updateOne({id: user.id}, {
-				$set: {
-					current_action: {
-						action: 'select_question',
-					},
-				}
-			})
+		const user = await findUser(ctx.from)
+		if (checkIsAdmin(user)) {
+			await setActionToUser(user, actions.SELECTQUESTION)
 			await ctx.telegram.sendMessage(ctx.chat.id, 'Напишите индекс вопроса цифрой', {
 				reply_markup: {
 					keyboard: [
@@ -487,31 +711,24 @@ class MessagesHandler {
 
 	async answeringQuestionHandler(ctx, user) {
 		const answer = ctx.update.message.text
-		const question = await Mongodb.findQuestion(user.current_action.questionIndex)
+		const question = await findQuestion(user.questionIndex)
 		const notionPageID = question.notionPageID;
 		const message = `Привет! Ты задавал(а) вопрос: \n${question.question}\nОтвечаю:\n${answer}`
 
-		await Mongodb.updateQuestionAnswer(question.index, answer)
-		await notion.updateQuestionNotion(notionPageID, answer)
+		await updateQuestionAnswer(question.index, answer)
+		await updateQuestionNotion(notionPageID, answer)
 
 		await ctx.telegram.sendMessage(question.user_id, message, {parse_mode: 'HTML'});
-		await this.resetLastAction(user);
+		await resetLastAction(user);
 		await ctx.telegram.sendMessage(ctx.chat.id, 'Ответ отправлен')
 		await this.showAdminMenu(ctx);
 	}
 
 	async sayYesHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id);
-		const index = user.current_action.questionIndex
-		if (user.current_action.action === action.QUESTIONSELECTED) {
-			await Mongodb.userBD.updateOne({id: user.id}, {
-				$set: {
-					current_action: {
-						action: 'answering_question',
-						questionIndex: index,
-					},
-				}
-			})
+		const user = await findUser(ctx.from);
+		const index = user.questionIndex
+		if (user.current_action === actions.QUESTIONSELECTED) {
+			await setActionWithPropertyToUser(user, actions.ANSEWERINGQEUSTION, {questionIndex: index})
 			await ctx.telegram.sendMessage(ctx.chat.id, 'Отлично, напишите ответ на выбранный ответ и он будет автоматически отправлен человеку, который его задал.', {
 				reply_markup: {
 					keyboard: [
@@ -525,15 +742,15 @@ class MessagesHandler {
 	}
 
 	async sayNoHandler(ctx) {
-		const user = await Mongodb.findUser(ctx.from.id)
+		const user = await findUser(ctx.from)
 		await ctx.telegram.sendMessage(ctx.chat.id, 'Ну как знаешь')
-		await this.resetLastAction(user);
+		await resetLastAction(user);
 		await this.showAdminMenu(ctx);
 	}
 
 	async answerQuestionHandler(ctx, user) {
 		const askedQuestion = ctx.update.message.text;
-		const questions = await Mongodb.getAllQuestions();
+		const questions = await getAllQuestions();
 		const index = questions.length + 1;
 		const insertQuestion = {
 			question: askedQuestion,
@@ -542,9 +759,9 @@ class MessagesHandler {
 			index: index,
 			answered: false
 		}
-		await Mongodb.questionsBD.insertOne(insertQuestion)
+		await writeNewQuestion(insertQuestion)
 
-		await this.resetLastAction(user)
+		await resetLastAction(user)
 
 		 await ctx.telegram.sendMessage(ctx.chat.id, `Я тебя услышал, твой вопрос номер: ${index}. Отвечу в ближайшее время!💪`,{
 			reply_markup: {
@@ -557,22 +774,22 @@ class MessagesHandler {
 			},
 		})
 
-		await this.makeNotionQuestionPage(index, askedQuestion, user.id)
+		await makeNotionQuestionPage(index, askedQuestion, user)
 	}
 
 	async answerIdeaHandler(ctx, user) {
-		const ideas = await Mongodb.getAllIdeas();
+		const ideas = await getAllIdeas();
 		const index = ideas.length + 1;
-		const receivedIdea = ctx.update.message.text;
+		const idea = ctx.update.message.text;
 		const insertIdea = {
-			idea: receivedIdea,
+			idea: idea,
 			user_id: user.id,
 			date: new Date().toISOString(),
 			index: index
 		}
-		await Mongodb.ideasBD.insertOne(insertIdea)
+		await writeNewIdea(insertIdea)
 
-		await this.resetLastAction(user)
+		await resetLastAction(user)
 
 		await ctx.telegram.sendMessage(ctx.chat.id, 'Я тебя услышал, на следующей встрече мы обязательно обсудим твои идеи и найдем лучший способ их реализации!💪', {
 			reply_markup: {
@@ -585,30 +802,7 @@ class MessagesHandler {
 			},
 		})
 
-		await this.makeNotionIdeaPage(index, receivedIdea, user.id)
-	}
-
-
-
-	//Добавление в Notion
-	async makeNotionQuestionPage(index, question, userID) {
-		const pageID = await notion.createQuestionNotion(question, userID, index)
-		return await Mongodb.updateQuestionNotionPageID(index,pageID);
-	}
-
-	async makeNotionPostPage(index, post, userID, type) {
-		const pageID = await notion.createPostNotion(post, userID, index, type)
-		return await Mongodb.updatePostNotionPageID(index,pageID);
-	}
-
-	async makeNotionSpeechPage(index, speech, userID) {
-		const pageID = await notion.createSpeechNotion(speech, userID, index)
-		return await Mongodb.updateSpeechNotionPageID(index,pageID);
-	}
-
-	async makeNotionIdeaPage(index, idea, userID) {
-		const pageID = await notion.createIdeasNotion(idea, userID, index)
-		return await Mongodb.updateIdeasPageID(index, pageID);
+		await makeNotionIdeaPage(index, idea, user)
 	}
 
 }

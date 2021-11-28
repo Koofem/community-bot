@@ -3,6 +3,7 @@ const fs = require('fs')
 require('dotenv')
 const messages = require('Constants/message');
 const msgHandler = require('Controllers/messagesHandler')
+const actions = require("../Constants/actions");
 
 
 class TelegramBot {
@@ -52,9 +53,23 @@ startListening() {
 
   this.bot.hears(messages.SAYNO, ctx=> msgHandler.sayNoHandler(ctx));
 
+  this.bot.hears(messages.NEWSLETTER, (ctx) => msgHandler.newsletterMessageHandler(ctx));
+
+  this.bot.action(actions.NEWSLETTERALL, (ctx) => msgHandler.newsLetterToAllHandler(ctx));
+
+  this.bot.action(actions.NEWSLETTERTOEXTERNALCHANNEL, (ctx) => msgHandler.newsLetterToExternalChannel(ctx));
+
+  this.bot.action(actions.NEWSLETTERTOPRIVATECHANNEL, (ctx) => msgHandler.newsLetterToPrivateChannel(ctx));
+
   this.bot.on('text', (ctx) =>msgHandler.simpleMessageHandler(ctx));
 
   this.bot.on('photo', (ctx) => msgHandler.photoMessageHandler(ctx));
+
+
+
+
+
+
 
 
   this.bot.launch().then(()=> {

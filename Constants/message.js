@@ -19,6 +19,10 @@ const messages = {
 		GETNOTIONDATABASE: 'Отдай базу Notion',
 		SAYYES: 'Да',
 		SAYNO: 'Нет',
+		NEWSLETTERTOPRIVATECHANNEL: 'X5 Tech Community',
+		NEWSLETTERTOEXTERNALCHANNEL: 'X5 Tech News',
+		NEWSLETTER: 'Массовая рассылка по каналам',
+		NEWSLETTERTOALL: 'В оба канала'
 }
 
 module.exports = messages
