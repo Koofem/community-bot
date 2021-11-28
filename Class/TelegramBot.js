@@ -1,10 +1,9 @@
 const { Telegraf } = require('telegraf')
 const fs = require('fs')
 require('dotenv')
-const messages = require('../../message');
-const msgHandler = require('./messagesHandler')
-const Mongodb = require("./mongodb");
-const Notion = require("./notion");
+const messages = require('Constants/message');
+const msgHandler = require('Controllers/messagesHandler')
+const actions = require("../Constants/actions");
 
 
 class TelegramBot {
@@ -12,9 +11,7 @@ class TelegramBot {
   bot = new Telegraf(process.env.BOT_TOKEN)
 
   async init() {
-    await Mongodb.init();
     await this.startListening();
-    await Notion.init();
   }
 
 startListening() {
@@ -56,9 +53,23 @@ startListening() {
 
   this.bot.hears(messages.SAYNO, ctx=> msgHandler.sayNoHandler(ctx));
 
+  this.bot.hears(messages.NEWSLETTER, (ctx) => msgHandler.newsletterMessageHandler(ctx));
+
+  this.bot.action(actions.NEWSLETTERALL, (ctx) => msgHandler.newsLetterToAllHandler(ctx));
+
+  this.bot.action(actions.NEWSLETTERTOEXTERNALCHANNEL, (ctx) => msgHandler.newsLetterToExternalChannel(ctx));
+
+  this.bot.action(actions.NEWSLETTERTOPRIVATECHANNEL, (ctx) => msgHandler.newsLetterToPrivateChannel(ctx));
+
   this.bot.on('text', (ctx) =>msgHandler.simpleMessageHandler(ctx));
 
   this.bot.on('photo', (ctx) => msgHandler.photoMessageHandler(ctx));
+
+
+
+
+
+
 
 
   this.bot.launch().then(()=> {

@@ -1,7 +1,5 @@
 require('dotenv')
 const { MongoClient } = require('mongodb');
-// const uri = `mongodb+srv://mmelnik:${process.env.MONGO_DB_PASS}@cluster0.ctkme.mongodb.net/${process.env.MONGO_DB_BASE}?retryWrites=true&w=majority`;
-// const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 class Mongodb {
 	constructor() {}

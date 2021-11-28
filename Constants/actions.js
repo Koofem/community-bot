@@ -7,7 +7,10 @@ const actions = {
 	MASSIVEMESSAGE: "massive_message",
 	SELECTQUESTION: "select_question",
 	QUESTIONSELECTED:'question_selected',
-	ANSEWERINGQEUSTION: 'answering_question'
+	ANSEWERINGQEUSTION: 'answering_question',
+	NEWSLETTERALL: 'news_letter_all',
+	NEWSLETTERTOEXTERNALCHANNEL: 'news_letter_external_channel',
+	NEWSLETTERTOPRIVATECHANNEL: 'news_letter_private_channel',
 }
 
 module.exports = actions
