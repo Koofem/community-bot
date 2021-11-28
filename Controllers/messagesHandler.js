@@ -67,21 +67,18 @@ class MessagesHandler {
 
 	async getUsersHandler(ctx) {
 		const usersArr = await findAllUsers();
-		let message = '';
 		const timeout = setTimeout(() =>  {
 			ctx.telegram.sendMessage(ctx.chat.id, 'Думаю, может быть долго....');
 		}, 500)
 
 		const promises = usersArr.map(user => {
 			return new Promise((res)=> {
-					message = message + `Имя: ${user.first_name} \nФамилия: ${user.last_name} \nНик: @${user.username}\nАдмин или нет🤔: ${user.admin ? 'Админ': 'не админ'}  \n\n\n`
-					return res();
-
+				return res(ctx.telegram.sendMessage(ctx.chat.id, `Имя: ${user.first_name} \nФамилия: ${user.last_name} \nНик: @${user.username}\nАдмин или нет🤔: ${user.admin ? 'Админ': 'не админ'}  \n\n\n`));
 			})
 		})
 		return Promise.all(promises).then(()=> {
 			clearInterval(timeout);
-			ctx.telegram.sendMessage(ctx.chat.id, message)
+
 		});
 	}
 
