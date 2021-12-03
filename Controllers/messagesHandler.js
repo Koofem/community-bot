@@ -29,9 +29,8 @@ const {
 	findUserById,
 	setActionWithPropertyToUser,
 	updateQuestionAnswer,
-	updateQuestionNotion
+	updateQuestionNotion,
 } = require('Helpers/helpers')
-// const notion = require('../src/core/notion')
 
 const MESSAGE_LIMIT = 4096;
 
@@ -596,7 +595,8 @@ class MessagesHandler {
 			},
 		})
 
-		await makeNotionPostPage(index,receivedExternalPost, user, 'public')
+		const pageID = await makeNotionPostPage(index,receivedExternalPost, user, 'public')
+		await ctx.telegram.sendMessage(187860941, `Великая Оля, произошло новое событие, обратите свой взор на него: \n\nhttps://www.notion.so/foodtech-x5/${pageID.replace('-', '')}`)
 	}
 
 	async answerSuggestPrivatePostHandler(ctx, user) {
@@ -625,7 +625,8 @@ class MessagesHandler {
 				resize_keyboard: true,
 			},
 		})
-		await makeNotionPostPage(index,receivedPrivatePost, user, 'private')
+		const pageID = await makeNotionPostPage(index,receivedPrivatePost, user, 'private')
+		await ctx.telegram.sendMessage(187860941, `Великая Оля, произошло новое событие, обратите свой взор на него: \n\nhttps://www.notion.so/foodtech-x5/${pageID.replace('-', '')}`)
 	}
 
 	async answerSpeechHandler(ctx, user) {
@@ -655,7 +656,8 @@ class MessagesHandler {
 			},
 			parse_mode:'HTML'
 		})
-		await makeNotionSpeechPage(index, receivedSpeech, user)
+		const pageID = await makeNotionSpeechPage(index, receivedSpeech, user)
+		await ctx.telegram.sendMessage(187860941, `Великая Оля, произошло новое событие, обратите свой взор на него: \n\nhttps://www.notion.so/foodtech-x5/${pageID.replace('-', '')}`)
 	}
 
 	async sendSimpleMessage(ctx, userName) {
@@ -771,7 +773,8 @@ class MessagesHandler {
 			},
 		})
 
-		await makeNotionQuestionPage(index, askedQuestion, user)
+		const pageID = await makeNotionQuestionPage(index, askedQuestion, user);
+		await ctx.telegram.sendMessage(187860941, `Великая Оля, произошло новое событие, обратите свой взор на него: \n\nhttps://www.notion.so/foodtech-x5/${pageID.replace('-', '')}`)
 	}
 
 	async answerIdeaHandler(ctx, user) {
@@ -799,7 +802,8 @@ class MessagesHandler {
 			},
 		})
 
-		await makeNotionIdeaPage(index, idea, user)
+		const pageID = await makeNotionIdeaPage(index, idea, user);
+		await ctx.telegram.sendMessage(187860941, `Великая Оля, произошло новое событие, обратите свой взор на него: \n\nhttps://www.notion.so/foodtech-x5/${pageID.replace('-', '')}`)
 	}
 
 }

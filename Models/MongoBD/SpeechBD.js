@@ -5,7 +5,7 @@ class SpeechBD {
 	}
 
 	async init() {
-		this.speechBD = mongodb.db.collection('questions');
+		this.speechBD = mongodb.db.collection('speech');
 	}
 
 	async getAllSpeech() {

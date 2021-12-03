@@ -7,11 +7,18 @@ const actions = require("../Constants/actions");
 
 
 class TelegramBot {
-  constructor() {}
-  bot = new Telegraf(process.env.BOT_TOKEN)
+  constructor() {
+
+  }
+  bot
 
   async init() {
+    this.bot = new Telegraf(process.env.BOT_TOKEN)
     await this.startListening();
+  }
+
+  botTele() {
+    return this.bot
   }
 
 startListening() {
@@ -64,13 +71,6 @@ startListening() {
   this.bot.on('text', (ctx) =>msgHandler.simpleMessageHandler(ctx));
 
   this.bot.on('photo', (ctx) => msgHandler.photoMessageHandler(ctx));
-
-
-
-
-
-
-
 
   this.bot.launch().then(()=> {
     console.log('Все заебись, бот запущен')

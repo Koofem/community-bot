@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "npm run postinstall && node index.js",
+    "start": "npm run postinstall && nodemon index.js",
     "postinstall": "link-module-alias"
   },
   "_moduleAliases": {

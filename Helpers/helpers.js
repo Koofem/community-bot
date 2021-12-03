@@ -115,25 +115,29 @@ module.exports = {
 	async makeNotionQuestionPage(index, question, user) {
 		const userFromBd = await userBD.findUser(user)
 		const pageID = await notion.createQuestionNotion(question, index, userFromBd)
-		return await questionsBD.udpateQuestionNotionID(index, pageID)
+		await questionsBD.udpateQuestionNotionID(index, pageID)
+		return pageID
 	},
 
 	async makeNotionIdeaPage(index, idea, user) {
 		const userFromBd = await userBD.findUser(user)
 		const pageID = await notion.createIdeasNotion(idea, userFromBd, index)
-		return await ideasBD.udpateIdeaNotionID(index, pageID);
+		await ideasBD.udpateIdeaNotionID(index, pageID);
+		return pageID
 	},
 
 	async makeNotionSpeechPage(index, speech, user) {
 		const userFromBd = await userBD.findUser(user)
 		const pageID = await notion.createSpeechNotion(speech, userFromBd, index)
-		return await speechBD.udpateSpeechNotionID(index,pageID);
+		await speechBD.udpateSpeechNotionID(index,pageID);
+		return pageID
 	},
 
 	async makeNotionPostPage(index, post, user, type) {
 		const userFromBd = await userBD.findUser(user)
 		const pageID = await notion.createPostNotion(post, userFromBd, index, type)
-		return await postBD.udpatePostNotionID(index,pageID);
+		await postBD.udpatePostNotionID(index,pageID);
+		return pageID
 	},
 
 	async updateQuestionNotion(notionPageID, answer) {
